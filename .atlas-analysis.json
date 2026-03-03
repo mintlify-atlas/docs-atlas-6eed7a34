@@ -1,0 +1,77 @@
+{
+  "projectType": "general",
+  "projectName": "Minecraft Consoles",
+  "projectDescription": "Minecraft Legacy Console Edition source code with modern improvements and LAN multiplayer support.",
+  "theme": "almond",
+  "primaryColor": "#8B4513",
+  "lightColor": "#D2691E",
+  "darkColor": "#654321",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Getting Started",
+        "pages": [
+          "introduction",
+          "quickstart",
+          "controls"
+        ]
+      },
+      {
+        "group": "Building",
+        "pages": [
+          "building/visual-studio",
+          "building/cmake",
+          "building/platform-support"
+        ]
+      },
+      {
+        "group": "Features",
+        "pages": [
+          "features/overview",
+          "features/multiplayer",
+          "features/improvements"
+        ]
+      },
+      {
+        "group": "Architecture",
+        "pages": [
+          "architecture/overview",
+          "architecture/client",
+          "architecture/world"
+        ]
+      },
+      {
+        "group": "Contributing",
+        "pages": [
+          "contributing/getting-started",
+          "contributing/known-issues"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Minecraft Legacy Console Edition v1.6.0560.0 (TU19) source code",
+    "Visual Studio 2022 and CMake build support",
+    "Keyboard and mouse input support",
+    "Fullscreen mode (F11)",
+    "LAN multiplayer and discovery",
+    "High-resolution timer for better FPS",
+    "Dynamic screen resolution support"
+  ],
+  "publicApiSurface": [
+    "Minecraft.Client - Main game client executable",
+    "Minecraft.World - Core game world and logic library",
+    "AABB - Axis-aligned bounding box collision",
+    "AbstractContainerMenu - Container/inventory system",
+    "Achievement - Achievement tracking system",
+    "LivingEntity - Entity system base",
+    "Level - World/level management",
+    "Block - Block type definitions",
+    "Item - Item type definitions",
+    "Player - Player entity",
+    "Mob - Creature entities",
+    "Packet system - Network protocol",
+    "Renderer - Graphics rendering pipeline",
+    "Input system - Keyboard/mouse/controller input"
+  ]
+}
