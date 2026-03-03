@@ -1,0 +1,164 @@
+---
+title: Architecture overview
+description: High-level architecture of the Minecraft Consoles codebase
+---
+
+The Minecraft Consoles project is a C++ port of Minecraft designed for console platforms (Xbox, PlayStation, Nintendo Switch). The codebase is structured into two primary modules that work together to deliver the complete game experience.
+
+## Project structure
+
+The project uses CMake for build configuration and is organized into two main libraries:
+
+<CardGroup cols={2}>
+  <Card title="Minecraft.World" icon="cube" href="/architecture/world">
+    Core game logic, entity system, world generation, and networking
+  </Card>
+  <Card title="Minecraft.Client" icon="display" href="/architecture/client">
+    Rendering, UI, input, audio, and platform-specific implementations
+  </Card>
+</CardGroup>
+
+### Build configuration
+
+The root `CMakeLists.txt` at `/source/CMakeLists.txt` defines the build structure:
+
+- **MinecraftWorld**: Static library (`.lib`) containing all world/game logic
+- **MinecraftClient**: Executable (`.exe`) that links against MinecraftWorld
+- Platform: Currently supports Windows x64 only (console ports use platform-specific build systems)
+
+<Note>
+The project uses compile definitions like `_LARGE_WORLDS`, `_DEBUG_MENUS_ENABLED`, and `_WINDOWS64` to enable platform-specific features and optimizations.
+</Note>
+
+## Module responsibilities
+
+### Minecraft.World
+
+The World module contains platform-independent game logic:
+
+- **Entity system**: All entity types (mobs, items, projectiles)
+- **World simulation**: Chunk management, block updates, lighting
+- **Game mechanics**: Crafting, enchanting, brewing, combat
+- **Networking**: Packet system for multiplayer synchronization
+- **Persistence**: Save/load system, NBT serialization
+
+Key source files are listed in `/source/cmake/WorldSources.cmake` (800+ files).
+
+### Minecraft.Client
+
+The Client module handles presentation and platform integration:
+
+- **Rendering**: Direct3D 11 renderer, chunk meshing, entity rendering
+- **UI system**: Menu screens, HUD, inventory interfaces
+- **Input**: Controller and keyboard/mouse handling
+- **Audio**: Sound engine integration (Miles Sound System)
+- **Platform code**: Xbox, PlayStation, Windows implementations
+
+Key source files are listed in `/source/cmake/ClientSources.cmake` (490+ files).
+
+## Key architectural patterns
+
+### Client-server architecture
+
+Even in single-player, the game uses a client-server model:
+
+```
+Player Input → MultiPlayerGameMode → ServerPlayer → Level → Packets → ClientPlayer → Rendering
+```
+
+- **Server side**: Authoritative game state, world simulation
+- **Client side**: Renders state, sends input packets
+- **Packets**: All actions synchronized via packet system (see `Packet.h:source/Minecraft.World/Packet.h`)
+
+<Accordion title="Packet system details">
+The packet system (`Packet.h`) defines a registry of packet types for synchronizing:
+- Entity movement and actions
+- Block updates and chunk data
+- Container contents and interactions
+- Player abilities and statistics
+
+Each packet type implements `read()`, `write()`, and `handle()` methods for serialization and processing.
+</Accordion>
+
+### Entity-component pattern
+
+Entities use inheritance-based components:
+
+- **Entity**: Base class with position, motion, collision (`Entity.h:source/Minecraft.World/Entity.h`)
+- **LivingEntity**: Adds health, AI, combat
+- **Mob**: Adds mob-specific behavior and spawning
+- **Specialized types**: Player, Zombie, Creeper, Minecart, etc.
+
+The `SynchedEntityData` system synchronizes entity properties between client and server.
+
+### Level and chunk management
+
+The `Level` class (`Level.h:source/Minecraft.World/Level.h`) manages the world:
+
+- **ChunkSource**: Generates and loads chunks
+- **LevelChunk**: 16×256×16 section of the world
+- **TileEntity**: Special block entities (chests, furnaces, signs)
+- **TickNextTick**: Scheduled block updates (redstone, water flow)
+
+### Rendering pipeline
+
+The `LevelRenderer` (`LevelRenderer.h:source/Minecraft.Client/LevelRenderer.h`) handles world rendering:
+
+1. **Chunk meshing**: Builds vertex buffers for visible blocks
+2. **Frustum culling**: Determines which chunks are visible
+3. **Render lists**: Groups chunks by material/transparency
+4. **Entity rendering**: Renders mobs and items
+5. **Effects**: Particles, weather, sky rendering
+
+<Note>
+The renderer supports up to 4 players in split-screen, with separate viewports and chunk visibility per player.
+</Note>
+
+## Multi-platform support
+
+The codebase supports multiple console platforms through platform-specific directories:
+
+- `Windows64/`: Windows/PC implementation
+- `Xbox/`: Xbox One/Series implementation
+- `PS3/`: PlayStation 3 implementation
+- `Common/`: Shared console-specific code (UI, audio, DLC, tutorials)
+
+### Platform abstractions
+
+Key systems have platform-specific implementations:
+
+- **Input**: `Windows64/KeyboardMouseInput.cpp` vs console controller input
+- **Networking**: `Windows64/Network/WinsockNetLayer.cpp` vs platform network APIs
+- **Storage**: Platform-specific save file management
+- **Leaderboards**: `Windows64/Leaderboards/WindowsLeaderboardManager.cpp`
+
+## Threading model
+
+The engine uses multiple threads for performance:
+
+- **Main thread**: Game logic, entity updates, UI
+- **Render thread**: Chunk rebuilding and rendering
+- **Network thread**: Packet processing
+- **Audio thread**: Sound mixing and playback
+
+Critical sections (`CRITICAL_SECTION`) protect shared data structures like entity lists and chunk caches.
+
+## Memory management
+
+The codebase uses a mix of memory management strategies:
+
+- **Smart pointers**: `shared_ptr<Entity>` for entities and complex objects
+- **Raw pointers**: `Level*`, `Tile*` for non-owned references
+- **Manual allocation**: Chunk data, vertex buffers
+- **Memory pools**: Custom allocators for frequently allocated objects
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Client architecture" icon="display" href="/architecture/client">
+    Deep dive into rendering, UI, and platform systems
+  </Card>
+  <Card title="World architecture" icon="cube" href="/architecture/world">
+    Explore entities, chunks, and game mechanics
+  </Card>
+</CardGroup>

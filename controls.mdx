@@ -1,0 +1,256 @@
+---
+title: Controls
+description: Complete keyboard and mouse controls reference for Minecraft Consoles
+---
+
+## Keyboard and mouse controls
+
+Minecraft Consoles includes full keyboard and mouse support for PC gameplay. This page covers all available controls.
+
+<Note>
+  The game uses raw mouse input for smooth camera movement and accumulates input across frames for consistent gameplay at any frame rate.
+</Note>
+
+## Movement controls
+
+Basic movement and navigation:
+
+| Action | Key | Notes |
+|--------|-----|-------|
+| Move forward | `W` | |
+| Move left | `A` | |
+| Move backward | `S` | |
+| Move right | `D` | |
+| Jump / Fly up | `Space` | Hold to fly up in creative mode |
+| Sneak / Fly down | `Shift` | Hold to sneak or fly down |
+| Sprint | `Ctrl` (Hold) or Double-tap `W` | Increases movement speed |
+
+<Tip>
+  You can sprint by either holding `Ctrl` while moving or by double-tapping `W`.
+</Tip>
+
+## Mouse controls
+
+Camera and interaction controls:
+
+| Action | Control | Notes |
+|--------|---------|-------|
+| Look around | Move mouse | Raw mouse input for smooth camera movement |
+| Attack / Destroy block | `Left Click` | Hold to break blocks |
+| Use / Place block | `Right Click` | Place blocks or use items |
+| Select item | `Mouse Wheel` or `1`-`9` | Scroll to cycle through hotbar |
+
+<Note>
+  Mouse capture is enabled during gameplay. Press `Left Alt` to toggle mouse capture for debugging purposes.
+</Note>
+
+## Inventory and items
+
+Managing your inventory and items:
+
+| Action | Key |
+|--------|-----|
+| Open inventory | `E` |
+| Drop item | `Q` |
+| Open crafting | `C` |
+| Select hotbar slot | `1` through `9` |
+| Scroll hotbar | `Mouse Wheel` |
+
+## Game controls
+
+General game functions:
+
+| Action | Key | Notes |
+|--------|-----|-------|
+| Pause menu | `Esc` | Opens the main pause menu |
+| Toggle fullscreen | `F11` | Switch between windowed and fullscreen |
+| Toggle HUD | `F1` | Hide or show the heads-up display |
+| Toggle debug info | `F3` | Show debug information overlay |
+| Open debug overlay | `F4` | Advanced debug information |
+| Toggle view | `F5` | Switch between first-person and third-person |
+| Game info | `Tab` | Shows player list and host options |
+
+<Warning>
+  Debug overlays (F3, F4) display technical information useful for developers and troubleshooting.
+</Warning>
+
+## Tutorial and UI controls
+
+Navigating menus and tutorials:
+
+| Action | Key | Notes |
+|--------|-----|-------|
+| Accept tutorial hint | `Enter` | Confirm tutorial hints |
+| Decline tutorial hint | `B` | Dismiss tutorial hints |
+| Toggle mouse capture | `Left Alt` | For debugging - releases/captures mouse |
+
+<Tip>
+  The Tutorial World will show hints as you play. Press `Enter` to accept them or `B` to skip.
+</Tip>
+
+## Input system architecture
+
+The keyboard and mouse input system is implemented in the Windows64 platform layer:
+
+### Key input handling
+
+The `KeyboardMouseInput` class (`Windows64/KeyboardMouseInput.cpp:15`) handles all keyboard input:
+
+- **Key state tracking** - Maintains current and previous frame state for 256 virtual keys
+- **Edge detection** - Detects key press and release events per frame
+- **Accumulation** - Accumulates key presses across frames for game-tick rate processing
+
+```cpp
+// Key state queries
+bool IsKeyDown(int vk) const;      // Current frame state
+bool IsKeyPressed(int vk) const;   // Rising edge detection
+bool IsKeyReleased(int vk) const;  // Falling edge detection
+
+// Game-tick accumulation
+bool ConsumeKeyPress(int vk);      // Consume accumulated press
+```
+
+### Mouse input handling
+
+Mouse input uses Windows raw input API for precise movement:
+
+- **Raw input** - Registers for `HID_USAGE_GENERIC_MOUSE` to get unaccelerated mouse movement
+- **Delta accumulation** - Accumulates mouse movement deltas across frames
+- **Mouse capture** - Clips cursor to window and hides it during gameplay
+
+```cpp
+// Mouse delta consumption
+void ConsumeMouseDelta(float &dx, float &dy);
+
+// Mouse wheel handling
+int ConsumeScrollDelta();
+
+// Mouse capture control
+void SetCapture(bool capture);
+```
+
+<Note>
+  The system uses double-buffered state for edge detection and accumulates input for game-tick processing at 20Hz, ensuring smooth input handling regardless of frame rate.
+</Note>
+
+### Frame timing
+
+The input system is designed for high frame rate gameplay:
+
+- **Per-frame state** - Updated every frame for UI and immediate feedback
+- **Game-tick accumulation** - Accumulated input is consumed at the game's 20Hz tick rate
+- **High-resolution timer** - Windows high-resolution timer provides smooth timing at high FPS
+
+## Performance features
+
+The input system includes several performance enhancements:
+
+- **V-Sync disabled** - Better performance and lower input latency
+- **High-resolution timer** - Smoother gameplay timing at high frame rates
+- **Raw mouse input** - Direct mouse input without Windows acceleration
+- **Efficient state management** - Double-buffered state for minimal overhead
+
+<Tip>
+  For the best experience, disable V-Sync in your graphics driver settings and let the game run at your monitor's maximum refresh rate.
+</Tip>
+
+## Troubleshooting
+
+Common input issues and solutions:
+
+### Mouse not captured
+
+If the mouse isn't captured during gameplay:
+
+1. Make sure you're in-game (not in a menu)
+2. Press `Left Alt` to toggle mouse capture
+3. The cursor should disappear and be clipped to the window
+
+### Keys not responding
+
+If keyboard input isn't working:
+
+1. Make sure the game window has focus
+2. Check if you're in a text input field
+3. Try clicking the game window to regain focus
+
+### Mouse movement feels wrong
+
+If mouse sensitivity or acceleration feels off:
+
+- The game uses raw input, bypassing Windows mouse acceleration
+- Adjust sensitivity in the game options menu
+- Check that your mouse driver isn't interfering with raw input
+
+<Warning>
+  Some gaming mice with custom drivers may interfere with raw input. Try disabling mouse acceleration in your driver software.
+</Warning>
+
+## Technical details
+
+For developers interested in the implementation:
+
+### Raw input registration
+
+The game registers for raw mouse input during initialization (`Windows64/KeyboardMouseInput.cpp:36`):
+
+```cpp
+RAWINPUTDEVICE rid;
+rid.usUsagePage = HID_USAGE_PAGE_GENERIC;
+rid.usUsage = HID_USAGE_GENERIC_MOUSE;
+rid.dwFlags = 0;
+rid.hwndTarget = hWnd;
+RegisterRawInputDevices(&rid, 1, sizeof(rid));
+```
+
+### WndProc integration
+
+Input events are processed through the Windows message pump:
+
+- `WM_KEYDOWN` / `WM_KEYUP` - Keyboard events
+- `WM_INPUT` - Raw mouse movement
+- `WM_LBUTTONDOWN` / `WM_RBUTTONDOWN` - Mouse buttons
+- `WM_MOUSEWHEEL` - Scroll wheel
+
+### State management
+
+The system maintains multiple state buffers:
+
+```cpp
+// Per-frame double-buffered state
+bool m_keyState[256];
+bool m_keyStatePrev[256];
+bool m_mouseButtons[3];
+bool m_mouseButtonsPrev[3];
+
+// Sticky press accumulators
+bool m_keyPressedAccum[256];
+bool m_mousePressedAccum[3];
+
+// Mouse delta accumulators
+float m_mouseDeltaXAccum;
+float m_mouseDeltaYAccum;
+```
+
+<Tip>
+  The accumulator pattern ensures that fast key presses aren't missed when the game tick rate (20Hz) is lower than the frame rate.
+</Tip>
+
+## Related topics
+
+<CardGroup cols={2}>
+  <Card
+    title="Quick start"
+    icon="rocket"
+    href="/quickstart"
+  >
+    Get up and running quickly
+  </Card>
+  <Card
+    title="Building from source"
+    icon="hammer"
+    href="/building/visual-studio"
+  >
+    Compile the game yourself
+  </Card>
+</CardGroup>

@@ -1,0 +1,385 @@
+---
+title: Client module architecture
+description: Rendering engine, UI system, input handling, and platform integration in Minecraft.Client
+---
+
+The Minecraft.Client module is responsible for all presentation, user interaction, and platform-specific functionality. It transforms the game state from Minecraft.World into a playable, interactive experience.
+
+## Module overview
+
+The Client module is organized into several major subsystems:
+
+<CardGroup cols={2}>
+  <Card title="Rendering" icon="paintbrush">
+    Direct3D 11 renderer, chunk meshing, entity models, particles
+  </Card>
+  <Card title="UI system" icon="window">
+    Screens, menus, HUD, inventory interfaces
+  </Card>
+  <Card title="Input" icon="gamepad">
+    Controller, keyboard/mouse, and touch input
+  </Card>
+  <Card title="Platform" icon="server">
+    Windows, Xbox, PlayStation platform integration
+  </Card>
+</CardGroup>
+
+## Core classes
+
+### Minecraft class
+
+The `Minecraft` class (`Minecraft.h:source/Minecraft.Client/Minecraft.h`) is the main game controller:
+
+```cpp
+class Minecraft {
+    MultiPlayerLevel *level;
+    LevelRenderer *levelRenderer;
+    shared_ptr<MultiplayerLocalPlayer> player;
+    MultiPlayerGameMode *gameMode;
+    
+    Textures *textures;
+    Font *font, *altFont;
+    Screen *screen;
+    GameRenderer *gameRenderer;
+    SoundEngine *soundEngine;
+    
+    void run();
+    void tick(bool bFirst, bool bUpdateTextures);
+};
+```
+
+**Key responsibilities:**
+- Game loop management (`run()`, `tick()`)
+- Level and player management
+- Screen/UI state management
+- Coordinating subsystems (rendering, audio, input)
+- Split-screen support (up to 4 players)
+
+<Note>
+The Minecraft class maintains arrays of local players, game modes, and item renderers to support split-screen multiplayer with up to 4 simultaneous players.
+</Note>
+
+### Split-screen architecture
+
+The client supports up to 4 local players:
+
+```cpp
+shared_ptr<MultiplayerLocalPlayer> localplayers[XUSER_MAX_COUNT];
+MultiPlayerGameMode *localgameModes[XUSER_MAX_COUNT];
+ItemInHandRenderer *localitemInHandRenderers[XUSER_MAX_COUNT];
+```
+
+Each player has:
+- Independent camera and viewport
+- Own game mode instance
+- Separate item rendering
+- Individual connection (in multiplayer)
+
+## Rendering system
+
+### LevelRenderer
+
+The `LevelRenderer` class (`LevelRenderer.h:source/Minecraft.Client/LevelRenderer.h`) manages all world rendering:
+
+```cpp
+class LevelRenderer : public LevelListener {
+    static const int CHUNK_SIZE = 16;
+    static const int CHUNK_Y_COUNT = 16; // 256 / 16
+    
+    MultiPlayerLevel *level[4];  // One per player
+    Chunk chunks[4][MAX_CHUNKS]; // Renderable chunks
+    TileRenderer *tileRenderer[4];
+    
+    int render(shared_ptr<LivingEntity> player, int layer, double alpha, bool updateChunks);
+    void renderEntities(Vec3 *cam, Culler *culler, float a);
+    void cull(Culler *culler, float a);
+};
+```
+
+**Rendering pipeline:**
+
+1. **Frustum culling**: Determine visible chunks using `Culler`
+2. **Chunk sorting**: Sort by distance and material
+3. **Opaque pass**: Render solid blocks (layer 0)
+4. **Transparent pass**: Render water, glass (layer 1)
+5. **Entity rendering**: Render mobs, items, particles
+6. **Effects**: Weather, sky, clouds
+7. **HUD overlay**: Health, hotbar, crosshair
+
+<Accordion title="Chunk rebuilding">
+Chunk meshes are rebuilt when:
+- Blocks are placed/destroyed
+- Lighting changes
+- Chunks are loaded
+
+The rebuilding process uses multiple threads:
+
+```cpp
+static const int MAX_CONCURRENT_CHUNK_REBUILDS = 8;
+static const int MAX_CHUNK_REBUILD_THREADS = 7;
+static C4JThread *rebuildThreads[MAX_CHUNK_REBUILD_THREADS];
+```
+
+Chunks are marked dirty and added to a lock-free stack for processing.
+</Accordion>
+
+### Chunk rendering
+
+The `Chunk` class represents a 16×16×16 renderable section:
+
+- **Vertex buffers**: Pre-built geometry for visible faces
+- **Render lists**: OpenGL/Direct3D display lists
+- **Dirty flags**: Track when rebuild is needed
+- **Empty flags**: Skip rendering empty chunks
+
+**Chunk flags** (`LevelRenderer.h:source/Minecraft.Client/LevelRenderer.h:255-269`):
+
+```cpp
+static const int CHUNK_FLAG_COMPILED  = 0x01; // Has compiled mesh
+static const int CHUNK_FLAG_DIRTY     = 0x02; // Needs rebuild
+static const int CHUNK_FLAG_EMPTY0    = 0x04; // Layer 0 empty
+static const int CHUNK_FLAG_EMPTY1    = 0x08; // Layer 1 empty
+static const int CHUNK_FLAG_NOTSKYLIT = 0x10; // No skylight
+```
+
+### Entity rendering
+
+Entity rendering uses a model-renderer pattern:
+
+**Model classes** define geometry:
+- `HumanoidModel`: Players, zombies, skeletons
+- `QuadrupedModel`: Cows, pigs, sheep
+- `ChickenModel`, `SpiderModel`, `CreeperModel`: Specialized models
+
+**Renderer classes** apply textures and animations:
+- `PlayerRenderer`, `ZombieRenderer`, `CowRenderer`
+- `EntityRenderDispatcher`: Routes entities to correct renderer
+
+<Note>
+Entity models are defined using `ModelPart` components that can be rotated and positioned. The `Model` class manages hierarchies of parts for skeletal animation.
+</Note>
+
+### Effects and particles
+
+`ParticleEngine` manages particle effects:
+
+- `ExplodeParticle`, `FlameParticle`, `SmokeParticle`
+- `WaterDropParticle`, `LavaParticle`, `RedDustParticle`
+- `EnchantmentTableParticle`, `PortalParticle`
+
+Particles are billboarded quads with physics simulation.
+
+## UI system
+
+The UI is built on a scene-based architecture located in `Common/UI/`.
+
+### Screen hierarchy
+
+```
+Screen (base class)
+├── UIScene (console-specific base)
+│   ├── UIScene_MainMenu
+│   ├── UIScene_PauseMenu
+│   ├── UIScene_InventoryMenu
+│   ├── UIScene_CraftingMenu
+│   └── UIScene_AbstractContainerMenu
+│       ├── UIScene_ChestMenu
+│       ├── UIScene_FurnaceMenu
+│       └── UIScene_EnchantingMenu
+```
+
+### UI components
+
+UI is built from reusable controls in `Common/UI/`:
+
+**Base components:**
+- `UIControl`: Base class for all UI elements
+- `UILayer`: Container for grouped controls
+- `UIGroup`: Hierarchical grouping
+- `UIScene`: Full-screen scene manager
+
+**Specific controls:**
+- `UIControl_Button`, `UIControl_CheckBox`, `UIControl_Slider`
+- `UIControl_Label`, `UIControl_TextInput`
+- `UIControl_SlotList`: Inventory grid
+- `UIControl_MinecraftPlayer`: 3D player preview
+
+<Accordion title="Container menu system">
+Inventory screens use the container menu pattern:
+
+1. **IUIScene_AbstractContainerMenu**: Base interface for containers
+2. **Specialized scenes**: ChestMenu, FurnaceMenu, CraftingMenu
+3. **Slot system**: Represents item slots in containers
+4. **AbstractContainerMenu**: Server-side container logic
+
+Container interactions are synchronized via packets:
+- `ContainerClickPacket`: Slot clicks
+- `ContainerSetSlotPacket`: Slot updates
+- `ContainerSetContentPacket`: Full inventory sync
+</Accordion>
+
+### Font rendering
+
+The `Font` class handles text rendering:
+
+- **Bitmap fonts**: Pre-rendered character textures
+- **Unicode support**: Wide character strings (`wstring`)
+- **Color codes**: Special formatting characters
+- **Shadow rendering**: Automatic text shadows
+
+Two fonts are available:
+- `font`: Default Minecraft font
+- `altFont`: Alternative font for certain UI elements
+
+## Input system
+
+Input handling is platform-specific:
+
+### Windows input
+
+`Windows64/KeyboardMouseInput.cpp` handles PC input:
+
+- **Keyboard**: DirectInput or Win32 keyboard events
+- **Mouse**: Position, clicks, scroll wheel
+- **KeyMapping**: Configurable key bindings
+
+### Console input
+
+Console platforms use native controller APIs:
+
+- **Xbox**: XInput API (`XInput9_1_0.lib`)
+- **PlayStation**: PlayStation controller API
+- **Input abstraction**: `ConsoleInput` class
+
+**Controller mapping:**
+- Face buttons: A/B/X/Y (Xbox) or ✕/○/□/△ (PlayStation)
+- Analog sticks: Movement and camera
+- Triggers: Use/break blocks
+- D-pad: Inventory navigation
+
+## Audio system
+
+The `SoundEngine` manages audio playback:
+
+### Sound implementation
+
+- **Miles Sound System**: `mss64.lib` integration
+- **3D positional audio**: Sounds positioned in world space
+- **Music streaming**: Background music and music discs
+- **Sound categories**: Master, music, weather, blocks, hostile, neutral
+
+**Sound files** are defined in `Common/Audio/SoundNames.cpp`:
+
+```cpp
+enum SoundID {
+    SOUND_CLICK,
+    SOUND_STEP_GRASS,
+    SOUND_DAMAGE_HIT,
+    SOUND_RANDOM_EXPLODE,
+    // ... hundreds more
+};
+```
+
+<Note>
+Sounds are clipped by distance (default 16 blocks) and support pitch/volume variation for variety.
+</Note>
+
+## Platform integration
+
+Platform-specific code is organized by directory:
+
+### Windows64
+
+- `Windows64_App.cpp`: Windows application entry point
+- `Windows64_Minecraft.cpp`: Windows-specific Minecraft initialization
+- `Windows64_UIController.cpp`: Windows UI handling
+- `Network/WinsockNetLayer.cpp`: Windows networking
+
+### Common console code
+
+The `Common/` directory contains shared console functionality:
+
+**DLC system** (`Common/DLC/`):
+- `DLCManager`: Downloadable content management
+- `DLCSkinFile`, `DLCTextureFile`: Custom skins and texture packs
+- `DLCAudioFile`: Custom music and sounds
+
+**Game rules** (`Common/GameRules/`):
+- `GameRuleManager`: Console-specific game modes and challenges
+- `LevelGenerationOptions`: Custom world generation
+- Tutorial and mini-game rule definitions
+
+**Tutorial system** (`Common/Tutorial/`):
+- `FullTutorial`: Interactive tutorial mode
+- `TutorialTask`: Task-based tutorial progression
+- `TutorialHint`: UI hints and guidance
+
+### Networking
+
+Console multiplayer uses platform network APIs:
+
+- `GameNetworkManager`: Platform-agnostic network interface
+- `PlatformNetworkManagerStub`: Platform-specific implementation
+- Packet routing between local and remote players
+
+## Resource management
+
+### Texture management
+
+`TextureManager` and `Textures` classes handle texture loading:
+
+- **Texture atlases**: Multiple textures in single image
+- **Stitcher**: Combines textures into atlases
+- **DLC textures**: Custom texture pack support
+- **Skin textures**: Player and mob skin variants
+
+**Memory limits** (`LevelRenderer.h:source/Minecraft.Client/LevelRenderer.h:56-65`):
+
+```cpp
+// Command buffer size per platform
+static const int MAX_COMMANDBUFFER_ALLOCATIONS = 
+    #ifdef _WINDOWS64
+        2047 * 1024 * 1024;  // 2GB
+    #elif _XBOX_ONE
+        512 * 1024 * 1024;   // 512MB
+    #elif __ORBIS__
+        448 * 1024 * 1024;   // 448MB
+    #endif
+```
+
+### Mesh data
+
+Chunk meshes use vertex buffers:
+
+- **Tesselator**: Builds vertex data
+- **Render lists**: OpenGL display lists (legacy)
+- **Vertex arrays**: Direct3D vertex buffers
+
+## Performance features
+
+### Multi-threading
+
+The client uses multiple threads:
+
+- **Chunk rebuild threads**: Up to 7 worker threads
+- **Network thread**: Packet processing
+- **Audio thread**: Sound mixing
+- **Main thread**: Game logic and rendering
+
+### Optimization techniques
+
+- **Frustum culling**: Skip rendering invisible chunks
+- **Occlusion culling**: Skip chunks behind other chunks
+- **Empty chunk skipping**: Don't render air-only chunks
+- **Level of detail**: Reduce detail for distant entities
+- **Batch rendering**: Group similar geometry
+
+<Note>
+The renderer tracks statistics for performance monitoring: `totalChunks`, `renderedChunks`, `occludedChunks`, `emptyChunks`, `totalEntities`, `renderedEntities`.
+</Note>
+
+## Next steps
+
+<Card title="World architecture" icon="cube" href="/architecture/world">
+  Explore the game logic, entity system, and world simulation in Minecraft.World
+</Card>

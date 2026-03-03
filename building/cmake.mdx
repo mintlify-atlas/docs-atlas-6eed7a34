@@ -1,0 +1,299 @@
+---
+title: Build with CMake
+description: Command-line build instructions using CMake and Visual Studio generators
+---
+
+This guide covers building Minecraft Consoles using CMake with Visual Studio generators. This approach is useful for automated builds, CI/CD pipelines, or command-line workflows.
+
+## Prerequisites
+
+<Warning>
+The CMake build currently supports **Windows x64 only**. Contributors on macOS or Linux need a Windows machine or VM to build the project.
+</Warning>
+
+Before you begin, ensure you have:
+
+- **CMake 3.24 or later**
+- **Visual Studio 2022** with C++ development tools
+- **Git** for cloning the repository
+- **PowerShell** or Command Prompt
+- **Windows 10 or later** (64-bit)
+
+<Note>
+You can download CMake from [cmake.org](https://cmake.org/download/) or install it via Visual Studio Installer.
+</Note>
+
+## Project structure
+
+The CMake build system is configured with:
+
+- `CMakeLists.txt` - Main project configuration
+- `cmake/WorldSources.cmake` - Source file list for MinecraftWorld library
+- `cmake/ClientSources.cmake` - Source file list for MinecraftClient executable
+- `cmake/CopyAssets.cmake` - Post-build asset copy script
+
+## Build targets
+
+The CMake configuration defines two main targets:
+
+- **MinecraftWorld** - Static library containing world/game logic
+- **MinecraftClient** - Main executable (WIN32 application)
+
+## Configuration
+
+<Steps>
+  <Step title="Clone the repository">
+    ```bash
+    git clone https://github.com/smartcmd/MinecraftConsoles.git
+    cd MinecraftConsoles
+    ```
+  </Step>
+
+  <Step title="Configure the build">
+    Run CMake configuration with the Visual Studio 2022 generator:
+
+    <CodeGroup>
+    ```powershell Specify VS Instance
+    cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_GENERATOR_INSTANCE="C:/Program Files/Microsoft Visual Studio/2022/Community"
+    ```
+
+    ```powershell Auto-detect VS
+    cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+    ```
+    </CodeGroup>
+
+    <Note>
+    Use `CMAKE_GENERATOR_INSTANCE` to explicitly specify your Visual Studio installation if you have multiple versions installed (Community, Professional, Enterprise).
+    </Note>
+  </Step>
+
+  <Step title="Verify configuration">
+    CMake will validate:
+    - Windows platform detection
+    - 64-bit generator/toolchain
+    - Required source files and dependencies
+
+    You should see output indicating successful configuration.
+  </Step>
+</Steps>
+
+## Building
+
+### Debug build
+
+Build the Debug configuration with debugging symbols and diagnostic features:
+
+```powershell
+cmake --build build --config Debug --target MinecraftClient
+```
+
+Output location: `build/Debug/MinecraftClient.exe`
+
+### Release build
+
+Build the Release configuration with optimizations:
+
+```powershell
+cmake --build build --config Release --target MinecraftClient
+```
+
+Output location: `build/Release/MinecraftClient.exe`
+
+<Warning>
+Release builds may have some known bugs. Debug configuration is recommended for development.
+</Warning>
+
+### Build all targets
+
+To build both the library and executable:
+
+```powershell
+cmake --build build --config Debug
+```
+
+## Running the game
+
+<Steps>
+  <Step title="Navigate to output directory">
+    ```powershell
+    cd .\build\Debug
+    ```
+    
+    Or for Release:
+    
+    ```powershell
+    cd .\build\Release
+    ```
+  </Step>
+
+  <Step title="Launch the executable">
+    ```powershell
+    .\MinecraftClient.exe
+    ```
+  </Step>
+</Steps>
+
+<Note>
+The game **must** be launched from the output directory because it relies on relative paths for assets (e.g., `Common/Media/...`).
+</Note>
+
+## CMake configuration details
+
+### Platform validation
+
+The CMakeLists.txt includes strict platform checks:
+
+```cmake
+if(NOT WIN32)
+  message(FATAL_ERROR "This CMake build currently supports Windows only.")
+endif()
+
+if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+  message(FATAL_ERROR "Use a 64-bit generator/toolchain (x64).")
+endif()
+```
+
+### Runtime library
+
+The project uses static MSVC runtime:
+
+```cmake
+set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+```
+
+- Debug: `MultiThreadedDebug`
+- Release: `MultiThreaded`
+
+### Compiler options
+
+The `configure_msvc_target()` function applies these settings:
+
+<CodeGroup>
+```cmake Debug flags
+/W3              # Warning level 3
+/MP              # Multi-processor compilation
+/EHsc            # Exception handling
+```
+
+```cmake Release flags
+/W0              # Warnings disabled
+/MP              # Multi-processor compilation
+/EHsc            # Exception handling
+/GL              # Whole program optimization
+/O2              # Maximum optimization
+/Oi              # Intrinsic functions
+/GT              # Fiber-safe thread-local storage
+/GF              # String pooling
+```
+</CodeGroup>
+
+### Preprocessor definitions
+
+Both Debug and Release configurations define:
+
+- `_LARGE_WORLDS` - Enable large world support
+- `_DEBUG_MENUS_ENABLED` - Enable debug menus
+- `_CRT_NON_CONFORMING_SWPRINTFS` - Legacy CRT compatibility
+- `_CRT_SECURE_NO_WARNINGS` - Disable CRT security warnings
+- `_WINDOWS64` - 64-bit Windows platform flag
+
+Additionally, Debug builds define `_DEBUG`.
+
+### Linked libraries
+
+The MinecraftClient executable links against:
+
+**System libraries:**
+- `d3d11` - Direct3D 11
+- `XInput9_1_0` - Xbox controller input
+- `wsock32` - Windows sockets
+- `legacy_stdio_definitions` - Legacy C runtime
+
+**Third-party libraries:**
+- Iggy (UI middleware): `iggy_w64.lib`, `iggyperfmon_w64.lib`, `iggyexpruntime_w64.lib`
+- Miles Sound System: `mss64.lib`
+- 4J Studios libraries: `4J_Input`, `4J_Storage`, `4J_Render_PC` (with `_d` suffix for Debug)
+
+## Post-build asset copying
+
+The CMake build automatically copies required assets after compilation:
+
+```cmake
+add_custom_command(TARGET MinecraftClient POST_BUILD
+  COMMAND "${CMAKE_COMMAND}"
+    -DPROJECT_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+    -DOUTPUT_DIR="$<TARGET_FILE_DIR:MinecraftClient>"
+    -DCONFIGURATION=$<CONFIG>
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CopyAssets.cmake"
+  VERBATIM
+)
+```
+
+This script copies:
+
+- Sound files (`Durango/Sound` → `Windows64/Sound`)
+- Music files
+- Game data (`Windows64/GameHDD`)
+- Media archives (`Common/Media/MediaWindows64.arc`)
+- Resources, tutorial, and trial content
+- Required DLLs (`iggy_w64.dll`, `mss64.dll`)
+
+<Note>
+Asset copying is automatic for both Debug and Release builds. You don't need to manually copy files.
+</Note>
+
+## Build from scratch
+
+To perform a clean build:
+
+```powershell
+# Remove build directory
+Remove-Item -Recurse -Force build
+
+# Reconfigure
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+
+# Build
+cmake --build build --config Debug --target MinecraftClient
+```
+
+## Parallel builds
+
+CMake automatically uses parallel compilation with `/MP`. To control the number of parallel jobs:
+
+```powershell
+cmake --build build --config Debug --target MinecraftClient --parallel 8
+```
+
+## Troubleshooting
+
+### "This CMake build currently supports Windows only"
+
+The CMake build system is Windows-only. If you're on macOS or Linux, you'll need a Windows machine or VM. Running the game via Wine is separate from having a supported build environment.
+
+### "Use a 64-bit generator/toolchain (x64)"
+
+Ensure you specify the x64 architecture with `-A x64` when configuring CMake.
+
+### "Cannot find Visual Studio instance"
+
+If CMake can't find Visual Studio, explicitly specify the path:
+
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_GENERATOR_INSTANCE="C:/Program Files/Microsoft Visual Studio/2022/Community"
+```
+
+Replace "Community" with "Professional" or "Enterprise" as appropriate.
+
+### Missing library files
+
+If the build fails with linker errors, verify that all required `.lib` files are present in:
+- `Minecraft.Client/Windows64/Iggy/lib/`
+- `Minecraft.Client/Windows64/Miles/lib/`
+- `Minecraft.Client/Windows64/4JLibs/libs/`
+
+## Next steps
+
+- Learn about [Visual Studio builds](/building/visual-studio) for IDE-based development
+- Review [platform support](/building/platform-support) for compatibility details
+- Set up CI/CD pipelines using the CMake workflow

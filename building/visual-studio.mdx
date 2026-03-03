@@ -1,0 +1,173 @@
+---
+title: Build with Visual Studio 2022
+description: Complete instructions for building Minecraft Consoles using Visual Studio 2022
+---
+
+This guide covers building the project using Visual Studio 2022 with the provided solution file. This is the recommended approach for Windows development.
+
+## Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Visual Studio 2022** with the following components:
+  - Desktop development with C++
+  - MSVC v143 or later (x64/x86 build tools)
+  - Windows 10 SDK or later
+  - C++/CLI support for v143 build tools
+- **Git** for cloning the repository
+- **Windows 10 or later** (64-bit)
+
+<Note>
+The project requires a 64-bit (x64) toolchain. Make sure you have the x64 build tools installed in Visual Studio.
+</Note>
+
+## Opening the project
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the MinecraftConsoles repository to your local machine:
+    
+    ```bash
+    git clone https://github.com/smartcmd/MinecraftConsoles.git
+    cd MinecraftConsoles
+    ```
+  </Step>
+
+  <Step title="Open the solution">
+    Locate and open `MinecraftConsoles.sln` in Visual Studio 2022. You can do this by:
+    - Double-clicking the `.sln` file in File Explorer, or
+    - Opening Visual Studio and selecting **File > Open > Project/Solution**
+  </Step>
+
+  <Step title="Set the startup project">
+    In Solution Explorer, right-click on `Minecraft.Client` and select **Set as Startup Project**. This ensures the client executable runs when you press F5.
+  </Step>
+</Steps>
+
+## Build configuration
+
+### Selecting the configuration
+
+The project supports two build configurations:
+
+- **Debug** (recommended): Includes debugging symbols and diagnostic menus. Best for development and testing.
+- **Release**: Optimized for performance with compiler optimizations enabled. Note that Release mode may have some known bugs.
+
+<Warning>
+Release builds are optimized but may contain bugs. It's recommended to use Debug configuration for development.
+</Warning>
+
+### Selecting the platform
+
+Set the target platform to **Windows64** using the platform dropdown in the Visual Studio toolbar. The project only supports 64-bit Windows builds.
+
+## Building the project
+
+<Steps>
+  <Step title="Select configuration and platform">
+    In the Visual Studio toolbar:
+    - Set the configuration to **Debug**
+    - Set the platform to **Windows64**
+  </Step>
+
+  <Step title="Build the solution">
+    Build the entire solution using one of these methods:
+    - Press `Ctrl+Shift+B`
+    - Select **Build > Build Solution** from the menu
+    - Right-click the solution in Solution Explorer and select **Build Solution**
+  </Step>
+
+  <Step title="Wait for compilation">
+    The build process compiles two main targets:
+    - `MinecraftWorld` (static library)
+    - `MinecraftClient` (executable)
+    
+    The first build may take several minutes.
+  </Step>
+</Steps>
+
+## Running the game
+
+<Steps>
+  <Step title="Start debugging">
+    Press `F5` or select **Debug > Start Debugging** to launch the game.
+  </Step>
+
+  <Step title="Run without debugging">
+    Alternatively, press `Ctrl+F5` to run without attaching the debugger for better performance.
+  </Step>
+</Steps>
+
+<Note>
+The game relies on relative paths (e.g., `Common/Media/...`) and must be launched from the output directory. Visual Studio handles this automatically when you run from the IDE.
+</Note>
+
+## Build output
+
+After a successful build, you'll find the compiled files in:
+
+```
+x64/Debug/MinecraftClient.exe
+```
+
+or
+
+```
+x64/Release/MinecraftClient.exe
+```
+
+The build process automatically copies required assets to the output directory, including:
+
+- Game media files (`Common/Media/`)
+- Sound files (`Windows64/Sound/`)
+- Tutorial and trial content
+- Required DLL files (`iggy_w64.dll`, `mss64.dll`)
+
+## Compiler settings
+
+The Visual Studio project uses the following MSVC settings:
+
+### Debug configuration
+
+- Runtime Library: `MultiThreadedDebug`
+- Warning Level: `/W3`
+- Exception Handling: `/EHsc`
+- Multi-processor Compilation: `/MP`
+- Preprocessor Definitions:
+  - `_LARGE_WORLDS`
+  - `_DEBUG_MENUS_ENABLED`
+  - `_DEBUG`
+  - `_CRT_NON_CONFORMING_SWPRINTFS`
+  - `_CRT_SECURE_NO_WARNINGS`
+  - `_WINDOWS64`
+
+### Release configuration
+
+- Runtime Library: `MultiThreaded`
+- Warning Level: `/W0` (warnings disabled for external code)
+- Optimizations: `/GL /O2 /Oi /GT /GF`
+- Link-Time Code Generation: `/LTCG`
+- Incremental Linking: Disabled (`/INCREMENTAL:NO`)
+
+## Troubleshooting
+
+### Build fails with "cannot open file"
+
+Ensure all required library files are present in:
+- `Minecraft.Client/Windows64/Iggy/lib/`
+- `Minecraft.Client/Windows64/Miles/lib/`
+- `Minecraft.Client/Windows64/4JLibs/libs/`
+
+### Game crashes on launch
+
+Make sure the working directory is set correctly. The game requires asset files in relative paths. Visual Studio automatically sets this, but if you're running the executable directly, launch it from the output directory.
+
+### Missing DLL errors
+
+The build process should automatically copy required DLLs (`iggy_w64.dll`, `mss64.dll`) to the output directory. If they're missing, check that the files exist in the source tree under `Windows64/Iggy/lib/redist64/` and `Windows64/Miles/lib/redist64/`.
+
+## Next steps
+
+- Learn about [CMake builds](/building/cmake) for command-line compilation
+- Review [platform support](/building/platform-support) for compatibility information
+- Check the Controls documentation to learn how to play the game

@@ -1,0 +1,139 @@
+---
+title: LAN multiplayer
+description: Set up and play multiplayer games on your local network
+---
+
+Basic LAN multiplayer functionality is available on the Windows build, allowing you to play Minecraft Legacy Console Edition with friends on your local network. The multiplayer implementation is based on [LCEMP](https://github.com/LCEMP/LCEMP/).
+
+## How it works
+
+When you host a multiplayer world, the game automatically advertises it on your local network. Other players running the game on the same network can discover your session from the in-game Join Game menu without needing to manually enter IP addresses.
+
+<Info>
+  LAN multiplayer uses automatic network discovery, so you don't need to configure IP addresses manually. Just host a world and have your friends check the Join Game menu.
+</Info>
+
+## Network ports
+
+The multiplayer implementation uses two network ports:
+
+<CardGroup cols={2}>
+  <Card title="TCP port 25565" icon="network-wired">
+    Used for game connections and gameplay traffic
+  </Card>
+  <Card title="UDP port 25566" icon="tower-broadcast">
+    Used for LAN discovery and session advertisement
+  </Card>
+</CardGroup>
+
+### Port configuration
+
+If you're experiencing connection issues, ensure these ports are not blocked by your firewall:
+
+- **TCP 25565** - This is the default Minecraft port used for game connections
+- **UDP 25566** - This port is used for broadcasting and discovering games on the local network
+
+<Note>
+  The game uses the standard Minecraft port (25565) for connections. If you have other Minecraft servers running on the same machine, you may experience port conflicts.
+</Note>
+
+## Hosting a game
+
+To host a multiplayer session:
+
+1. Launch the game and load a world
+2. Ensure multiplayer is enabled for the world
+3. The game will automatically advertise the session on your local network
+4. Other players on the same LAN can now discover your game
+
+<Tip>
+  When hosting a game, make sure your Windows Firewall allows the game through both private and public networks if you're playing on a public network.
+</Tip>
+
+## Joining a game
+
+To join a LAN multiplayer session:
+
+1. Launch the game on a device connected to the same network
+2. Navigate to the **Join Game** menu from the main screen
+3. Available games on your LAN will appear automatically
+4. Select the game you want to join and connect
+
+The game uses UDP broadcasting on port 25566 to discover available sessions, so you don't need to manually enter server addresses.
+
+## Custom username
+
+You can override your in-game username by creating a `username.txt` file in the same directory as the game executable.
+
+### Setting a custom username
+
+1. Navigate to your game installation directory (where the .exe file is located)
+2. Create a new text file named `username.txt`
+3. Enter your desired username on the first line
+4. Save the file
+5. Launch the game
+
+The implementation reads the username from `username.txt` at startup (see `Windows64_Minecraft.cpp:778`). If the file doesn't exist or is empty, the game falls back to your Windows username.
+
+<Note>
+  Usernames are limited to 16 characters. Any characters beyond this limit will be truncated.
+</Note>
+
+### Example username.txt
+
+```text
+MinecraftPlayer
+```
+
+The game will trim any trailing whitespace, newlines, or carriage returns from the username.
+
+## Troubleshooting
+
+### Games not appearing in the join menu
+
+If you can't see available games:
+
+- Verify all devices are on the same local network
+- Check that UDP port 25566 is not blocked by firewalls
+- Ensure the host has successfully loaded a multiplayer-enabled world
+- Try temporarily disabling Windows Firewall to test connectivity
+
+### Connection failed errors
+
+If you can see a game but can't connect:
+
+- Verify TCP port 25565 is not blocked by firewalls
+- Check that no other applications are using port 25565
+- Ensure the host's game is still running and hasn't crashed
+- Verify both players are running compatible versions of the game
+
+### Username not changing
+
+If your custom username isn't working:
+
+- Verify `username.txt` is in the same directory as the game executable
+- Check that the file is named exactly `username.txt` (not `username.txt.txt`)
+- Ensure there are no extra spaces or special characters in the filename
+- Restart the game after creating or modifying the file
+
+## Technical details
+
+The multiplayer implementation includes:
+
+- **Automatic session advertising** - When hosting, the game broadcasts session information via UDP on port 25566
+- **Network discovery** - Clients listen for UDP broadcasts to find available games
+- **TCP connections** - Once a game is discovered, clients connect via TCP on port 25565
+- **Username customization** - Custom usernames are loaded from `username.txt` during game initialization
+
+The networking code is primarily located in the `GameNetworkManager` class and related network components in the source code.
+
+## Limitations
+
+<Warning>
+  LAN multiplayer is currently only supported on Windows builds. The feature requires proper network stack implementation for each platform.
+</Warning>
+
+- Multiplayer is limited to LAN (local area network) connections
+- No internet/online multiplayer support
+- Platform-specific network implementations are not available for other platforms
+- The feature is based on LCEMP and may have compatibility limitations

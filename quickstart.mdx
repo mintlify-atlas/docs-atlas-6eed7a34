@@ -1,80 +1,180 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick start
+description: Get Minecraft Consoles up and running in minutes with this quick start guide
 ---
 
-## Get started in three steps
+## Get started quickly
 
-Get your documentation site running locally and make your first customization.
+Follow these steps to build and run Minecraft Consoles on Windows. This guide focuses on getting you playing as quickly as possible.
 
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+<Steps>
+  <Step title="Install Visual Studio 2022">
+    Download and install [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/) with the following workloads:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    - Desktop development with C++
+    - Windows 10 SDK (or newer)
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    <Note>
+      The Community edition is free and works perfectly for this project.
+    </Note>
+  </Step>
 
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+  <Step title="Clone the repository">
+    Open a terminal and clone the repository:
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```bash
+    git clone https://github.com/smartcmd/MinecraftConsoles.git
+    cd MinecraftConsoles
+    ```
+  </Step>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+  <Step title="Open the solution">
+    Double-click the `MinecraftConsoles.sln` file to open the project in Visual Studio 2022.
+    
+    <Tip>
+      Make sure `Minecraft.Client` is set as the Startup Project (it should be by default).
+    </Tip>
+  </Step>
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Configure build settings">
+    In Visual Studio, set your build configuration:
+    
+    - **Configuration**: Debug (recommended) or Release
+    - **Platform**: Windows64
+    
+    <Warning>
+      Release mode may have some bugs. Use Debug mode for the best experience.
+    </Warning>
+  </Step>
 
-### Step 3: Go live
+  <Step title="Build and run">
+    Press `F5` to build and run the game, or:
+    
+    - Go to **Build > Build Solution** (`Ctrl+Shift+B`)
+    - Then **Debug > Start Debugging** (`F5`)
+    
+    The game will compile and launch automatically.
+  </Step>
+</Steps>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## Alternative: CMake build
+
+If you prefer using CMake instead of Visual Studio's solution file, you can build from the command line.
+
+<Steps>
+  <Step title="Configure the project">
+    Open PowerShell in the project directory and run:
+    
+    ```powershell
+    cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+    ```
+    
+    <Note>
+      You can specify your Visual Studio instance explicitly:
+      ```powershell
+      cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_GENERATOR_INSTANCE="C:/Program Files/Microsoft Visual Studio/2022/Community"
+      ```
+    </Note>
+  </Step>
+
+  <Step title="Build the executable">
+    Build the Debug configuration:
+    
+    ```powershell
+    cmake --build build --config Debug --target MinecraftClient
+    ```
+    
+    Or for Release:
+    
+    ```powershell
+    cmake --build build --config Release --target MinecraftClient
+    ```
+  </Step>
+
+  <Step title="Run the game">
+    Navigate to the output directory and run:
+    
+    ```powershell
+    cd .\build\Debug
+    .\MinecraftClient.exe
+    ```
+    
+    <Tip>
+      The game relies on relative paths like `Common\Media\...`, so make sure to run it from the output directory.
+    </Tip>
+  </Step>
+</Steps>
+
+## First launch
+
+When you first launch the game:
+
+1. You'll see the classic Minecraft Console Edition Tutorial World
+2. Use the [keyboard and mouse controls](/controls) to navigate
+3. Press `F11` to toggle fullscreen mode
+4. Press `Esc` to access the pause menu
+
+<Tip>
+  Tutorial hints will appear on screen. Press `Enter` to accept them or `B` to decline.
+</Tip>
+
+## Quick controls reference
+
+Here are the essential controls to get you started:
+
+| Action | Key |
+|--------|-----|
+| Move | `W` `A` `S` `D` |
+| Jump | `Space` |
+| Sneak | `Shift` (Hold) |
+| Inventory | `E` |
+| Break block | `Left Click` |
+| Place block | `Right Click` |
+| Pause | `Esc` |
+| Fullscreen | `F11` |
+
+For the complete controls reference, see the [controls page](/controls).
+
+## Playing multiplayer
+
+Minecraft Consoles includes basic LAN multiplayer support:
+
+<Steps>
+  <Step title="Host a game">
+    When you create or load a world, it automatically advertises on your local network.
+    
+    - **Game port**: TCP `25565`
+    - **Discovery port**: UDP `25566`
+  </Step>
+
+  <Step title="Join a game">
+    Other players on the same LAN can find your session in the **Join Game** menu.
+    
+    <Note>
+      This feature is based on [LCEMP](https://github.com/LCEMP/LCEMP/).
+    </Note>
+  </Step>
+
+  <Step title="Custom username (optional)">
+    Override your in-game username by creating a `username.txt` file in the game directory with your desired name.
+  </Step>
+</Steps>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card
+    title="Learn all controls"
+    icon="keyboard"
+    href="/controls"
+  >
+    Master the complete keyboard and mouse controls
+  </Card>
+  <Card
+    title="Build from source"
+    icon="book"
+    href="/building/visual-studio"
+  >
+    Detailed compilation instructions and troubleshooting
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

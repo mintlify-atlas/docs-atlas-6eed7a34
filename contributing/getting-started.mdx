@@ -1,0 +1,236 @@
+---
+title: Getting started
+description: Learn how to contribute to the Minecraft Legacy Console Edition project
+---
+
+This project contains the source code of Minecraft Legacy Console Edition v1.6.0560.0 (TU19), with fixes and improvements applied. Contributions are welcome to help improve the codebase, fix bugs, and add new features.
+
+## Prerequisites
+
+Before you start contributing, you need to set up your development environment:
+
+- **Visual Studio 2022** - Required for building the project on Windows
+- **Windows operating system** - Currently the only supported platform for building
+- **Git** - For version control and submitting contributions
+- **DirectX 11 compatible GPU** - Required for running the game
+
+<Note>
+Contributors on macOS or Linux need a Windows machine or VM to build the project. While the game may run via Wine or CrossOver, the build environment itself only supports Windows.
+</Note>
+
+## Setting up your development environment
+
+<Steps>
+  <Step title="Clone the repository">
+    Clone the MinecraftConsoles repository to your local machine:
+    
+    ```bash
+    git clone https://github.com/smartcmd/MinecraftConsoles.git
+    cd MinecraftConsoles
+    ```
+  </Step>
+
+  <Step title="Install Visual Studio 2022">
+    Download and install Visual Studio 2022 with the following workloads:
+    - Desktop development with C++
+    - Windows 10 SDK
+  </Step>
+
+  <Step title="Open the solution">
+    Open the project by double-clicking `MinecraftConsoles.sln` in Visual Studio 2022.
+  </Step>
+
+  <Step title="Configure the startup project">
+    Make sure `Minecraft.Client` is set as the Startup Project:
+    - Right-click on `Minecraft.Client` in Solution Explorer
+    - Select "Set as Startup Project"
+  </Step>
+
+  <Step title="Select build configuration">
+    Choose your build configuration:
+    - **Debug** (recommended for development)
+    - **Release** (has some known bugs - see Known Issues)
+    
+    Set the target platform to **Windows64**.
+  </Step>
+
+  <Step title="Build and run">
+    Build the solution using:
+    - `Build > Build Solution` (or press `Ctrl+Shift+B`)
+    - Start debugging with `F5`
+  </Step>
+</Steps>
+
+## Building with CMake
+
+If you prefer using CMake, you can build the project from the command line:
+
+<Accordion title="CMake build instructions">
+  ### Configure the build
+
+  ```powershell
+  cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DCMAKE_GENERATOR_INSTANCE="C:/Program Files/Microsoft Visual Studio/2022/Community"
+  ```
+
+  ### Build Debug configuration
+
+  ```powershell
+  cmake --build build --config Debug --target MinecraftClient
+  ```
+
+  ### Build Release configuration
+
+  ```powershell
+  cmake --build build --config Release --target MinecraftClient
+  ```
+
+  ### Run the executable
+
+  ```powershell
+  cd .\build\Debug
+  .\MinecraftClient.exe
+  ```
+
+  <Note>
+  The game relies on relative paths (for example `Common\Media\...`), so you must launch the executable from its output directory.
+  </Note>
+</Accordion>
+
+## Debug vs Release builds
+
+Understanding the difference between Debug and Release builds is important for contributing:
+
+### Debug build (recommended)
+
+- **Stability**: More stable with fewer known issues
+- **Performance**: Slower execution speed
+- **Debugging**: Full debugging symbols and easier troubleshooting
+- **Use case**: Development, testing, and debugging
+
+### Release build
+
+- **Stability**: Has some known bugs and issues
+- **Performance**: Faster execution with optimizations enabled
+- **Optimization**: Compiled with `/O2 /Ot /Oi /Ob3 /GF /fp:precise` and Whole Program Optimization
+- **Use case**: Production builds and performance testing
+
+<Warning>
+The Release build configuration currently has some bugs. Use Debug mode for development unless you're specifically testing Release mode issues.
+</Warning>
+
+## Contribution workflow
+
+Follow these steps when contributing to the project:
+
+<Steps>
+  <Step title="Create a feature branch">
+    Create a new branch for your changes:
+    
+    ```bash
+    git checkout -b feature/your-feature-name
+    ```
+  </Step>
+
+  <Step title="Make your changes">
+    Implement your feature or bug fix. Make sure to:
+    - Follow the existing code style (`.clang-format` is provided)
+    - Test your changes in Debug mode
+    - Verify the game runs correctly with your modifications
+  </Step>
+
+  <Step title="Test your changes">
+    **IMPORTANT**: Actually play the game with your changes! Untested PRs are not welcome.
+    
+    - Build and run the project
+    - Test all affected functionality
+    - Take screenshots or record gameplay footage showing your changes in action
+  </Step>
+
+  <Step title="Commit your changes">
+    Commit your changes with clear, descriptive commit messages:
+    
+    ```bash
+    git add .
+    git commit -m "Add feature: description of what you added"
+    ```
+  </Step>
+
+  <Step title="Push your branch">
+    Push your branch to your fork:
+    
+    ```bash
+    git push origin feature/your-feature-name
+    ```
+  </Step>
+
+  <Step title="Create a pull request">
+    Open a pull request on GitHub with:
+    - A clear description of your changes
+    - Explanation of previous behavior, root cause, new behavior, and fix implementation
+    - Screenshots or gameplay footage demonstrating your changes
+    - Reference to any related issues
+  </Step>
+</Steps>
+
+## Pull request requirements
+
+When submitting a pull request, include the following information:
+
+### Description
+
+Briefly describe the changes your PR introduces.
+
+### Changes breakdown
+
+- **Previous Behavior**: How the code behaved before your change
+- **Root Cause**: The core reason behind the erroneous/old behavior (bug, design flaw, missing edge case)
+- **New Behavior**: How the code behaves after your change
+- **Fix Implementation**: Detail exactly how the issue was resolved (specific code changes, algorithms, logic flows)
+
+### Visual proof
+
+<Warning>
+If your PR changes the game behavior visibly, you **must** attach gameplay footage or at least a screenshot of you actually playing the game with your changes. Untested PRs are not welcome.
+</Warning>
+
+### Related issues
+
+Reference any related issues:
+```
+- Fixes #[issue-number]
+- Related to #[issue-number]
+```
+
+## Code style
+
+The project includes a `.clang-format` configuration file. Make sure your code follows the project's formatting standards:
+
+```bash
+clang-format -i path/to/your/file.cpp
+```
+
+## Testing your contributions
+
+Before submitting a pull request:
+
+1. **Build successfully**: Ensure your changes compile without errors or warnings
+2. **Run the game**: Launch the game and verify it starts correctly
+3. **Test your feature**: Thoroughly test the functionality you added or modified
+4. **Test existing features**: Make sure you didn't break existing functionality
+5. **Try both configurations**: Test in Debug mode (and Release mode if relevant)
+
+## Getting help
+
+If you need help with contributing:
+
+- Join the [Discord server](https://discord.gg/jrum7HhegA)
+- Check existing issues on GitHub
+- Review the pull request template for guidance
+
+## Community guidelines
+
+- Be respectful and constructive in all interactions
+- Describe your changes clearly in commit messages and PRs
+- Focus on quality over quantity
+- Test your changes before submitting
+- Be patient and responsive to feedback during code review

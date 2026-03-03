@@ -1,0 +1,191 @@
+---
+title: Known issues
+description: Known issues, limitations, and bugs in the Minecraft Legacy Console Edition project
+---
+
+This page documents known issues and limitations in the current version of the project. Understanding these issues will help you avoid common pitfalls and contribute fixes.
+
+## Platform support
+
+### Windows support
+
+**Windows** is the only officially supported platform for building and running the project:
+
+- Requires at least **Windows 7**
+- Requires a **DirectX 11 compatible GPU**
+- Builds using **Visual Studio 2022** and MSBuild
+- Both Debug and Release configurations work (with Release having some bugs)
+
+### macOS and Linux
+
+<Warning>
+Native builds for platforms other than Windows have not been tested and are most likely non-functional.
+</Warning>
+
+While the project is Windows-only for building:
+
+- The Windows nightly build **may** run through Wine or CrossOver on macOS/Linux
+- This is based on community reports and is **unofficial**
+- Not currently tested or supported by the maintainers
+- Running via Wine is separate from having a supported build environment
+- Contributors on macOS or Linux need a Windows machine or VM to build
+
+<Note>
+If you successfully run the game on macOS or Linux through Wine/CrossOver, please share your experience in the Discord community!
+</Note>
+
+## Release mode bugs
+
+The Release build configuration has several known issues:
+
+<Warning>
+It is recommended to use **Debug mode** for development and testing. Release mode should only be used when specifically testing Release-related issues or for performance benchmarking.
+</Warning>
+
+### Issues with Release builds
+
+While the Release build compiles successfully, it has some bugs that make Debug mode more stable:
+
+- **Stability issues**: Release builds may exhibit unexpected behavior
+- **Debugging difficulty**: Harder to troubleshoot issues without debug symbols
+- **Optimization side effects**: Aggressive optimizations may cause subtle bugs
+
+### Release build optimizations
+
+The nightly Release builds are compiled with:
+- **Compiler**: MSVC v14.44.35207
+- **Configuration**: Release mode with Whole Program Optimization
+- **Flags**: `/O2 /Ot /Oi /Ob3 /GF /fp:precise`
+
+These optimizations provide better performance but may introduce stability issues.
+
+## Build system limitations
+
+### CMake limitations
+
+The CMake build system has some constraints:
+
+- **Windows-only**: The CMake build is Windows-only and x64-only
+- **Path dependencies**: The game relies on relative paths (for example `Common\Media\...`)
+- **Launch directory**: You must launch the executable from its output directory
+- **Asset copying**: Post-build asset copy is automatic for `MinecraftClient` in both Debug and Release variants
+
+### Visual Studio requirements
+
+The project requires specific Visual Studio setup:
+
+- **Version**: Visual Studio 2022 is required
+- **Edition**: Community, Professional, or Enterprise editions work
+- **Workloads**: Desktop development with C++ must be installed
+- **SDK**: Windows 10 SDK is required
+
+## Multiplayer limitations
+
+Basic LAN multiplayer is available but has some limitations:
+
+### Network requirements
+
+- **LAN only**: Only local network multiplayer is supported
+- **TCP port**: Game connections use TCP port `25565` by default
+- **UDP port**: LAN discovery uses UDP port `25566`
+- **Firewall**: These ports must be open in your firewall
+
+### Multiplayer features
+
+- Hosting automatically advertises on the local network
+- Other players on the same LAN can discover sessions from the in-game Join Game menu
+- Username can be overridden at launch with `username.txt`
+
+<Note>
+The multiplayer feature is based on [LCEMP](https://github.com/LCEMP/LCEMP/). For issues specific to multiplayer, check the LCEMP project as well.
+</Note>
+
+## Version information
+
+This project is based on:
+
+- **Version**: Minecraft Legacy Console Edition v1.6.0560.0 (TU19)
+- **Source**: [archive.org](https://archive.org/details/minecraft-legacy-console-edition-source-code)
+- **Modifications**: Various fixes and improvements have been applied
+
+<Accordion title="Applied fixes and improvements">
+  The following improvements have been made to the original source code:
+
+  - Fixed compilation and execution in both Debug and Release mode on Windows
+  - Added support for keyboard and mouse input
+  - Added fullscreen mode support (toggle using F11)
+  - Disabled V-Sync for better performance
+  - Added high-resolution timer path on Windows for smoother high-FPS gameplay timing
+  - Device's screen resolution is used as game resolution instead of fixed 1920x1080
+  - Added LAN Multiplayer & Discovery
+</Accordion>
+
+## Reporting new issues
+
+If you discover a new issue:
+
+<Steps>
+  <Step title="Check existing issues">
+    Search the [GitHub Issues](https://github.com/smartcmd/MinecraftConsoles/issues) to see if the issue is already reported.
+  </Step>
+
+  <Step title="Gather information">
+    Collect details about the issue:
+    - Build configuration (Debug or Release)
+    - Steps to reproduce
+    - Expected vs actual behavior
+    - Screenshots or error messages
+    - System information (Windows version, GPU, etc.)
+  </Step>
+
+  <Step title="Create an issue">
+    Open a new issue on GitHub with:
+    - A clear, descriptive title
+    - Detailed description of the problem
+    - Steps to reproduce
+    - Your environment information
+    - Any relevant logs or screenshots
+  </Step>
+
+  <Step title="Join the community">
+    For quick questions or community support, join the [Discord server](https://discord.gg/jrum7HhegA).
+  </Step>
+</Steps>
+
+## Contributing fixes
+
+If you want to help fix any of these known issues:
+
+1. Check the [Getting started](/contributing/getting-started) guide for contribution workflow
+2. Discuss your approach in an existing issue or create a new one
+3. Test your fix thoroughly in both Debug and Release modes (if applicable)
+4. Submit a pull request with clear documentation of your fix
+
+<Note>
+Fixes for Release mode bugs are particularly valuable to the project. If you can identify and resolve stability issues in Release builds, your contributions will be highly appreciated!
+</Note>
+
+## Workarounds
+
+### For Release mode issues
+
+If you encounter issues with Release builds:
+
+1. **Switch to Debug mode**: Use Debug configuration for development
+2. **Test incrementally**: If you must use Release mode, test changes incrementally
+3. **Compare behaviors**: Run the same code in both Debug and Release to identify differences
+4. **Report findings**: Document any Release-specific issues you discover
+
+### For path-related issues
+
+If you encounter missing assets or resources:
+
+1. **Check working directory**: Ensure you're running from the correct output directory
+2. **Verify paths**: The game expects `Common\Media\...` and other relative paths
+3. **Copy assets**: Make sure post-build asset copying completed successfully
+
+### For multiplayer issues
+
+1. **Check firewall**: Ensure ports 25565 (TCP) and 25566 (UDP) are open
+2. **Same network**: Verify all players are on the same local network
+3. **Username**: Create `username.txt` to override your in-game name if needed

@@ -1,0 +1,604 @@
+---
+title: World module architecture
+description: Core game systems, entity management, world generation, and networking in Minecraft.World
+---
+
+The Minecraft.World module contains all platform-independent game logic, world simulation, and networking code. This is the "brain" of the game, handling everything from entity behavior to chunk generation to multiplayer synchronization.
+
+## Module overview
+
+The World module is organized into several major systems:
+
+<CardGroup cols={2}>
+  <Card title="Entity system" icon="user">
+    All living entities, mobs, players, and items
+  </Card>
+  <Card title="World simulation" icon="globe">
+    Chunks, blocks, lighting, and physics
+  </Card>
+  <Card title="Game mechanics" icon="wrench">
+    Crafting, combat, enchanting, brewing
+  </Card>
+  <Card title="Networking" icon="network-wired">
+    Packet system for multiplayer
+  </Card>
+</CardGroup>
+
+## Core classes
+
+### Level class
+
+The `Level` class (`Level.h:source/Minecraft.World/Level.h`) is the central world manager:
+
+```cpp
+class Level : public LevelSource {
+    static const int maxBuildHeight = 256;
+    static const int genDepth = 128;  // Sea level depth
+    
+    vector<shared_ptr<Entity>> entities;
+    vector<shared_ptr<Player>> players;
+    vector<shared_ptr<TileEntity>> tileEntityList;
+    
+    ChunkSource *chunkSource;
+    Dimension *dimension;
+    LevelData *levelData;
+    Random *random;
+    
+    void tick();
+    void tickEntities();
+};
+```
+
+**Key responsibilities:**
+- Entity lifecycle management
+- Chunk loading and unloading
+- Block updates and lighting
+- Collision detection
+- Weather simulation
+- Scheduled tick processing
+
+<Note>
+The Level class uses critical sections (`CRITICAL_SECTION m_entitiesCS`) to protect entity lists from race conditions during multi-threaded chunk generation and rendering.
+</Note>
+
+### World dimensions
+
+Minecraft has three dimensions, each with a separate Level instance:
+
+- **Overworld** (dimension 0): Normal world with full height
+- **Nether** (dimension -1): Hell dimension with different generation
+- **The End** (dimension 1): End dimension with void and end stone
+
+## Entity system
+
+The entity system uses inheritance-based polymorphism.
+
+### Entity hierarchy
+
+```
+Entity (base class)
+├── LivingEntity (health, AI, combat)
+│   ├── Mob (pathfinding, spawning)
+│   │   ├── PathfinderMob (navigation)
+│   │   │   ├── Creature (passive mobs)
+│   │   │   │   ├── Animal (breeding)
+│   │   │   │   │   ├── Cow, Sheep, Pig, Chicken
+│   │   │   │   │   └── TamableAnimal
+│   │   │   │   │       └── Wolf, Ocelot
+│   │   │   │   └── Bat, Squid
+│   │   │   └── Monster (hostile mobs)
+│   │   │       ├── Zombie, Skeleton, Creeper
+│   │   │       ├── Spider, Enderman, Witch
+│   │   │       └── Blaze, Ghast, Slime
+│   │   └── FlyingMob
+│   │       └── Ghast, EnderDragon
+│   └── Player
+│       └── LocalPlayer, RemotePlayer, ServerPlayer
+├── Minecart (rideable entities)
+│   ├── MinecartRideable, MinecartChest
+│   └── MinecartFurnace, MinecartHopper
+├── Projectile
+│   ├── Arrow, Snowball, ThrownEgg
+│   └── Fireball, WitherSkull
+├── ItemEntity (dropped items)
+├── ExperienceOrb
+├── HangingEntity
+│   ├── Painting, ItemFrame
+│   └── LeashFenceKnotEntity
+└── Boat, PrimedTnt, FallingTile
+```
+
+### Entity class
+
+The `Entity` base class (`Entity.h:source/Minecraft.World/Entity.h`) provides:
+
+**Core properties:**
+```cpp
+int entityId;           // Unique ID
+double x, y, z;         // Position
+double xd, yd, zd;      // Velocity
+float yRot, xRot;       // Rotation (yaw, pitch)
+AABB *bb;               // Bounding box
+bool onGround;          // Collision state
+Level *level;           // World reference
+```
+
+**Key methods:**
+- `tick()`: Update entity state each game tick
+- `move()`: Physics and collision
+- `hurt()`: Take damage
+- `interact()`: Player interaction
+- `save()/load()`: NBT serialization
+
+<Accordion title="Entity synchronization">
+Entities use `SynchedEntityData` to synchronize properties between client and server:
+
+```cpp
+shared_ptr<SynchedEntityData> entityData;
+
+// Shared flags (max 8 bits)
+static const int DATA_SHARED_FLAGS_ID = 0;
+static const int FLAG_ONFIRE = 0;
+static const int FLAG_SNEAKING = 1;
+static const int FLAG_SPRINTING = 3;
+static const int FLAG_INVISIBLE = 5;
+```
+
+The `SetEntityDataPacket` synchronizes these values to clients.
+</Accordion>
+
+### AI system
+
+Mobs use a goal-based AI system:
+
+**GoalSelector** manages AI goals:
+```cpp
+class Mob {
+    GoalSelector *goalSelector;      // Behavior goals
+    GoalSelector *targetSelector;    // Target selection
+};
+```
+
+**Goal classes** define behaviors:
+- `MeleeAttackGoal`: Close-range combat
+- `RangedAttackGoal`: Bow/projectile attacks
+- `FollowOwnerGoal`: Tamed animal following
+- `PanicGoal`: Flee when damaged
+- `BreedGoal`: Animal breeding
+- `LookAtPlayerGoal`: Look at nearby players
+- `RandomStrollGoal`: Random wandering
+
+**Pathfinding:**
+- `PathNavigation`: High-level navigation
+- `PathFinder`: A* pathfinding algorithm
+- `Path`: Sequence of nodes to destination
+
+### Entity limits
+
+The Level class enforces entity limits:
+
+```cpp
+static const int MAX_XBOX_BOATS = 40;
+static const int MAX_CONSOLE_MINECARTS = 40;
+static const int MAX_DISPENSABLE_FIREBALLS = 200;
+static const int MAX_DISPENSABLE_PROJECTILES = 300;
+```
+
+## Chunk system
+
+### Chunk structure
+
+`LevelChunk` represents a 16×256×16 section of the world:
+
+```cpp
+class LevelChunk {
+    static const int WIDTH = 16;
+    static const int HEIGHT = 256;
+    
+    byte blocks[WIDTH * HEIGHT * WIDTH];      // Block IDs
+    DataLayer *data;                          // Block metadata
+    DataLayer *skyLight, *blockLight;         // Lighting
+    
+    unordered_map<TilePos, shared_ptr<TileEntity>> tileEntities;
+};
+```
+
+**Chunk coordinates:**
+- World position (x, z) maps to chunk (x >> 4, z >> 4)
+- Each chunk contains 65,536 blocks (16×256×16)
+
+### Chunk generation
+
+`ChunkSource` generates chunks:
+
+**Generator types:**
+- `RandomLevelSource`: Overworld terrain generation
+- `HellRandomLevelSource`: Nether generation  
+- `TheEndLevelRandomLevelSource`: End generation
+- `FlatLevelSource`: Superflat worlds
+
+**Generation pipeline:**
+1. **Base terrain**: Perlin noise for height and biomes
+2. **Biome layers**: Temperature, rainfall, biome selection
+3. **Features**: Trees, ores, lakes, caves, dungeons
+4. **Structures**: Villages, temples, mineshafts, strongholds
+5. **Population**: Grass, flowers, mushrooms
+
+<Note>
+Chunk generation uses `BiomeSource` with layer-based biome generation, similar to Java Edition's climate system.
+</Note>
+
+### Block system
+
+**Tile** is the base class for all blocks:
+
+```cpp
+class Tile {
+    int id;                    // Block ID (0-255)
+    Material *material;        // Material properties
+    float destroyTime;         // Hardness
+    float explosionResistance; // Blast resistance
+    
+    virtual void tick(Level *level, int x, int y, int z, Random *random);
+    virtual void neighborChanged(Level *level, int x, int y, int z, int neighborId);
+};
+```
+
+**Specialized tiles:**
+- `LiquidTile`: Water and lava flow
+- `RedStoneDustTile`: Redstone wire
+- `PistonBaseTile`: Piston mechanics
+- `DoorTile`, `FenceTile`, `StairTile`: Complex shapes
+- `CropTile`: Farmland crops with growth
+
+### TileEntity system
+
+Complex blocks use `TileEntity` for extra data:
+
+```cpp
+class TileEntity {
+    int x, y, z;
+    
+    virtual void load(CompoundTag *tag);  // Load from NBT
+    virtual void save(CompoundTag *tag);  // Save to NBT
+};
+```
+
+**TileEntity types:**
+- `ChestTileEntity`: Inventory storage
+- `FurnaceTileEntity`: Smelting with fuel and progress
+- `BrewingStandTileEntity`: Potion brewing
+- `EnchantmentTableEntity`: Enchantment randomization
+- `BeaconTileEntity`: Beacon effects
+- `CommandBlockEntity`: Command execution
+- `SignTileEntity`: Sign text
+
+## World simulation
+
+### Lighting system
+
+The lighting engine calculates two types of light:
+
+**Sky light:**
+- Sunlight/moonlight from above
+- Propagates downward until blocked
+- Changes with time of day
+
+**Block light:**
+- Light from torches, lava, glowstone
+- Propagates in all directions
+- Constant brightness
+
+**Light propagation:**
+```cpp
+void Level::checkLight(LightLayer::variety layer, int x, int y, int z) {
+    // Flood-fill algorithm
+    // Updates light values for chunk sections
+    // Marks chunks dirty for re-rendering
+}
+```
+
+<Accordion title="Lighting optimization">
+The lighting system uses several optimizations:
+
+- **Light cache**: Thread-local cache for chunk rebuilding
+- **Sparse storage**: Only store non-zero light values
+- **Batch updates**: Group multiple light changes
+- **Scheduled updates**: Defer lighting until chunk generation complete
+
+```cpp
+typedef __uint64 lightCache_t;
+void initCacheComplete(lightCache_t *cache, int xc, int yc, int zc);
+int getBrightnessCached(lightCache_t *cache, LightLayer::variety layer, int x, int y, int z);
+```
+</Accordion>
+
+### Scheduled ticks
+
+Blocks can schedule future updates:
+
+```cpp
+class TickNextTickData {
+    int x, y, z;
+    int tileId;
+    int tickDelay;
+    int priority;
+};
+
+void Level::addToTickNextTick(int x, int y, int z, int tileId, int tickDelay);
+```
+
+**Use cases:**
+- Redstone repeater delays
+- Water and lava flow
+- Crop growth
+- Fire spread
+- Grass propagation
+
+The Level processes up to 1000 scheduled ticks per game tick.
+
+### Physics and collision
+
+**AABB** (Axis-Aligned Bounding Box) for collision:
+
+```cpp
+class AABB {
+    double x0, y0, z0;  // Min corner
+    double x1, y1, z1;  // Max corner
+    
+    bool intersects(AABB *other);
+    AABB *move(double xa, double ya, double za);
+};
+```
+
+**Collision detection:**
+1. Get potential collision boxes from blocks and entities
+2. Sweep AABB through space
+3. Resolve collisions iteratively (X, Y, Z order)
+4. Set `onGround`, `horizontalCollision` flags
+
+## Game mechanics
+
+### Item system
+
+**Item** base class for all items:
+
+```cpp
+class Item {
+    int id;                    // Item ID (256+)
+    int maxStackSize;          // Stack limit (usually 64)
+    int maxDamage;             // Durability (0 = no damage)
+    
+    virtual bool useOn(ItemInstance *item, Player *player, 
+                      Level *level, int x, int y, int z, int face);
+};
+```
+
+**Item categories:**
+- `DiggerItem`: Tools (pickaxe, axe, shovel)
+- `BowItem`, `FishingRodItem`: Projectile weapons
+- `ArmorItem`: Helmets, chestplates, leggings, boots
+- `FoodItem`: Consumables
+- `ComplexItem`: Items with NBT data
+
+**ItemInstance** represents item stacks:
+
+```cpp
+class ItemInstance {
+    int id;                    // Item/block ID
+    int count;                 // Stack size
+    int auxValue;              // Metadata/damage
+    CompoundTag *tag;          // NBT data (optional)
+};
+```
+
+### Container system
+
+**AbstractContainerMenu** manages inventory screens:
+
+```cpp
+class AbstractContainerMenu {
+    vector<Slot *> slots;              // UI slots
+    vector<Container *> containers;    // Backing inventories
+    
+    ItemInstance *clicked(int slotId, int button, int mode, Player *player);
+};
+```
+
+**Container types:**
+- `InventoryMenu`: Player inventory (2×2 crafting)
+- `CraftingMenu`: Crafting table (3×3 crafting)
+- `FurnaceMenu`: Furnace (input, fuel, output)
+- `BrewingStandMenu`: Brewing stand (3 potions, ingredient)
+- `EnchantmentMenu`: Enchanting table
+- `BeaconMenu`: Beacon power selection
+
+### Crafting system
+
+**Recipes** class stores all crafting recipes:
+
+```cpp
+class Recipes {
+    vector<Recipe *> recipes;
+    
+    ItemInstance *findMatchingRecipe(CraftingContainer *container);
+};
+```
+
+**Recipe types:**
+- `ShapedRecipe`: Position-specific patterns
+- `ShapelessRecipe`: Order-independent ingredients
+- `ArmorDyeRecipe`: Leather armor dyeing
+- `FireworksRecipe`: Firework crafting
+
+### Enchanting system
+
+Enchantments use a complex randomization system:
+
+```cpp
+class Enchantment {
+    int id;
+    int rarity;                // Common, uncommon, rare, very rare
+    EnchantmentCategory *type; // Weapon, armor, tool, bow, etc.
+    
+    int getMinCost(int level);
+    int getMaxCost(int level);
+};
+```
+
+**Enchantment types:**
+- **Protection**: Fire, blast, projectile, fall protection
+- **Damage**: Sharpness, smite, bane of arthropods
+- **Bow**: Power, punch, flame, infinity
+- **Tool**: Efficiency, fortune, silk touch
+- **Armor**: Thorns, respiration, aqua affinity
+
+<Note>
+Enchanting uses the player's XP level and randomness based on surrounding bookshelves (max 15) to determine available enchantments.
+</Note>
+
+## Networking system
+
+### Packet architecture
+
+The `Packet` class (`Packet.h:source/Minecraft.World/Packet.h`) defines the network protocol:
+
+```cpp
+class Packet {
+    virtual int getId() = 0;
+    virtual void read(DataInputStream *dis) = 0;
+    virtual void write(DataOutputStream *dos) = 0;
+    virtual void handle(PacketListener *listener) = 0;
+    
+    static shared_ptr<Packet> readPacket(DataInputStream *dis, bool isServer);
+    static void writePacket(shared_ptr<Packet> packet, DataOutputStream *dos);
+};
+```
+
+### Packet types
+
+The game defines 100+ packet types for synchronization:
+
+**Connection packets:**
+- `LoginPacket`: Initial connection handshake
+- `DisconnectPacket`: Graceful disconnection
+- `KeepAlivePacket`: Connection health check
+
+**Entity packets:**
+- `AddPlayerPacket`, `AddMobPacket`: Spawn entities
+- `MoveEntityPacket`: Entity movement
+- `RotateHeadPacket`: Head rotation
+- `SetEntityDataPacket`: Synced data updates
+- `RemoveEntitiesPacket`: Despawn entities
+
+**World packets:**
+- `LevelChunkPacket`: Chunk data transfer
+- `TileUpdatePacket`: Single block update
+- `BlockRegionUpdatePacket`: Multi-block update
+- `ExplodePacket`: Explosion effects
+- `LevelEventPacket`: World events (sound, particle)
+
+**Player packets:**
+- `MovePlayerPacket`: Player position
+- `PlayerActionPacket`: Breaking blocks, actions
+- `UseItemPacket`: Right-click actions
+- `InteractPacket`: Entity interactions
+- `PlayerAbilitiesPacket`: Flying, invulnerability
+
+**Container packets:**
+- `ContainerClickPacket`: Inventory slot clicks
+- `ContainerSetSlotPacket`: Single slot update
+- `ContainerSetContentPacket`: Full inventory
+- `CraftItemPacket`: Crafting result
+
+<Accordion title="Packet optimization">
+Packets include optimization features:
+
+**Packet batching:**
+- Multiple small packets combined into one
+- Reduces network overhead
+
+**Delta encoding:**
+- `MoveEntityPacketSmall`: Sends only position delta
+- Saves bandwidth for small movements
+
+**Invalidation:**
+- Later packets can invalidate earlier ones
+- Prevents redundant updates
+
+```cpp
+virtual bool canBeInvalidated();
+virtual bool isInvalidatedBy(shared_ptr<Packet> packet);
+```
+</Accordion>
+
+### Multiplayer synchronization
+
+**Server authoritative model:**
+1. Client sends input packets (movement, actions)
+2. Server validates and processes
+3. Server broadcasts state changes to all clients
+4. Clients render received state
+
+**Client prediction:**
+- Client immediately applies own actions
+- Server corrections override if desynced
+- Reduces perceived latency
+
+## Persistence
+
+### Save file format
+
+World saves use NBT (Named Binary Tag) format:
+
+```cpp
+class Tag {
+    virtual void write(DataOutputStream *dos) = 0;
+    virtual void read(DataInputStream *dis) = 0;
+};
+
+// Tag types
+ByteTag, ShortTag, IntTag, LongTag, FloatTag, DoubleTag
+ByteArrayTag, StringTag, ListTag<T>, CompoundTag
+```
+
+**CompoundTag** stores hierarchical data:
+
+```cpp
+class CompoundTag {
+    unordered_map<wstring, shared_ptr<Tag>> tags;
+    
+    void putInt(const wstring& key, int value);
+    int getInt(const wstring& key);
+};
+```
+
+### Level data
+
+`LevelData` stores world settings:
+
+```cpp
+class LevelData {
+    __int64 seed;              // World seed
+    __int64 gameTime;          // Total ticks
+    int spawnX, spawnY, spawnZ; // Spawn point
+    bool raining, thundering;   // Weather
+    int gameType;              // Survival, creative, adventure
+    bool hardcore, cheatsAllowed;
+    GameRules *gameRules;      // Game rules (command-set)
+};
+```
+
+### Region files
+
+Chunks are stored in region files (32×32 chunks per file):
+
+- `McRegionChunkStorage`: Chunk read/write
+- `RegionFile`: Compressed chunk storage
+- `AnvilChunkStorage`: Anvil format (256 height)
+
+## Next steps
+
+<Card title="Client architecture" icon="display" href="/architecture/client">
+  Learn how the Client module renders the world and handles user interaction
+</Card>

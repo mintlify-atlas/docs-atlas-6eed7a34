@@ -1,0 +1,254 @@
+---
+title: Platform support
+description: Platform compatibility, requirements, and limitations for Minecraft Consoles
+---
+
+Minecraft Consoles has specific platform requirements for building and running the project. This page details what platforms are officially supported and what alternatives exist.
+
+## Supported platforms
+
+### Windows (Official)
+
+**Build support:** ✅ Fully supported  
+**Runtime support:** ✅ Fully supported
+
+Windows is the only officially supported platform for both building and running Minecraft Consoles.
+
+**Requirements:**
+- Windows 10 or later (64-bit)
+- Visual Studio 2022 with C++ development tools
+- 64-bit (x64) processor
+- DirectX 11 compatible graphics card
+- 4GB RAM minimum (8GB recommended)
+
+**Build tools:**
+- Visual Studio 2022 (.sln file)
+- CMake 3.24+ with Visual Studio generator
+
+<Note>
+Windows is currently the only platform with a functional native build system. All development and testing is performed on Windows.
+</Note>
+
+## Platform limitations
+
+### macOS (Not supported)
+
+**Build support:** ❌ Not supported  
+**Runtime support:** ⚠️ Unofficial (Wine/CrossOver)
+
+There is no native macOS build system. The project uses Windows-specific APIs and dependencies:
+
+- Direct3D 11 (Windows graphics API)
+- MSVC-specific compiler features
+- Windows-only third-party libraries (Iggy, Miles Sound System)
+- XInput for controller support
+
+**Alternative options:**
+- Use a Windows VM (Parallels, VMware Fusion, VirtualBox)
+- Use Boot Camp to dual-boot Windows
+- Community reports suggest the Windows nightly build may run through Wine or CrossOver (unofficial, untested)
+
+<Warning>
+Contributors on macOS need a Windows machine or VM to build the project. Cross-compilation is not currently possible.
+</Warning>
+
+### Linux (Not supported)
+
+**Build support:** ❌ Not supported  
+**Runtime support:** ⚠️ Unofficial (Wine/CrossOver)
+
+There is no native Linux build system for the same reasons as macOS. The project is tightly coupled to Windows APIs.
+
+**Alternative options:**
+- Use a Windows VM (KVM/QEMU, VirtualBox, VMware Workstation)
+- Community reports suggest the Windows nightly build may run through Wine or Proton (unofficial, untested)
+
+<Warning>
+Contributors on Linux need a Windows machine or VM to build the project. The Windows nightly build may run on Linux through Wine or CrossOver, but this is unofficial and not currently supported by the maintainers.
+</Warning>
+
+## Architecture requirements
+
+### 64-bit (x64) only
+
+The project **requires** a 64-bit architecture:
+
+- All builds must target x64 (64-bit)
+- 32-bit (x86) builds are not supported
+- ARM64 builds are not supported
+
+The CMake configuration enforces this:
+
+```cmake
+if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+  message(FATAL_ERROR "Use a 64-bit generator/toolchain (x64).")
+endif()
+```
+
+<Note>
+The original console hardware (Xbox 360, PlayStation 3) used different architectures, but this port is specifically designed for Windows x64.
+</Note>
+
+## Visual Studio version
+
+### Visual Studio 2022 (Recommended)
+
+The project is configured for Visual Studio 2022 (MSVC v143 toolset):
+
+- **Solution file:** Targets Visual Studio 2022
+- **CMake generator:** "Visual Studio 17 2022"
+- **Toolset:** MSVC v143
+- **Platform toolset:** v143
+
+### Older Visual Studio versions
+
+Older versions like Visual Studio 2019 or 2017 are **not officially supported**, though they may work with modifications:
+
+- CMake generator would need adjustment
+- Some C++17 features may require updates
+- Toolset configuration would need changes
+
+<Warning>
+Using Visual Studio versions older than 2022 is not recommended and may require manual configuration changes.
+</Warning>
+
+## Runtime requirements
+
+### Windows runtime dependencies
+
+The game requires these runtime components:
+
+**System libraries:**
+- DirectX 11
+- Visual C++ Runtime (included in build)
+- Windows Sockets (wsock32)
+- XInput 9.1.0
+
+**Third-party DLLs (included):**
+- `iggy_w64.dll` - Iggy UI middleware
+- `mss64.dll` - Miles Sound System
+
+These DLLs are automatically copied to the output directory during the build process.
+
+### Graphics requirements
+
+The game uses Direct3D 11 and requires:
+
+- DirectX 11 compatible GPU
+- Shader Model 5.0 support
+- 1GB VRAM minimum
+
+### Network requirements
+
+For multiplayer functionality:
+
+- TCP port **25565** (game connections)
+- UDP port **25566** (LAN discovery)
+
+Ensure these ports are not blocked by your firewall if you want to host or join LAN games.
+
+## Unofficial Wine support
+
+### Community reports
+
+Some community members have reported success running the Windows nightly build through compatibility layers:
+
+**macOS:**
+- CrossOver (commercial Wine wrapper)
+- Wine via Homebrew
+
+**Linux:**
+- Wine
+- Proton (Steam compatibility layer)
+- CrossOver
+
+<Warning>
+Wine/CrossOver support is **unofficial** and **untested** by the maintainers. It may work, but there are no guarantees. Issues related to Wine are not officially supported.
+</Warning>
+
+### Known limitations with Wine
+
+- Graphics performance may be reduced
+- Controller input may not work properly
+- Audio issues may occur
+- Multiplayer may have connectivity problems
+- Not all Windows APIs are fully implemented
+
+## Future platform support
+
+While currently Windows-only, potential future improvements could include:
+
+- Native Linux builds (would require significant porting work)
+- Native macOS builds (would require replacing DirectX with Metal or Vulkan)
+- ARM64 support (would require library updates)
+
+<Note>
+There are no current plans to officially support non-Windows platforms. Contributions are welcome, but would require substantial effort to replace Windows-specific dependencies.
+</Note>
+
+## Build system compatibility
+
+### CMake version
+
+**Minimum:** CMake 3.24  
+**Recommended:** Latest stable version
+
+The project uses modern CMake features:
+
+- Generator expressions
+- Target-based configuration
+- Visual Studio integration
+
+### Supported generators
+
+The only officially supported CMake generator is:
+
+```
+"Visual Studio 17 2022" -A x64
+```
+
+Other generators (Ninja, NMake, etc.) are **not tested** and may not work correctly due to:
+
+- Custom post-build asset copying
+- Visual Studio debugger integration
+- MSVC-specific compiler flags
+
+## Hardware recommendations
+
+### Minimum requirements
+
+- **CPU:** 64-bit dual-core processor, 2.0 GHz
+- **RAM:** 4GB
+- **GPU:** DirectX 11 compatible, 1GB VRAM
+- **Storage:** 2GB free space
+- **OS:** Windows 10 64-bit
+
+### Recommended requirements
+
+- **CPU:** 64-bit quad-core processor, 3.0 GHz or higher
+- **RAM:** 8GB or more
+- **GPU:** DirectX 11 compatible, 2GB VRAM or more
+- **Storage:** 5GB free space (SSD recommended)
+- **OS:** Windows 10/11 64-bit
+
+## Known platform issues
+
+### Windows-specific issues
+
+- **Release builds:** May contain bugs; Debug configuration is recommended
+- **V-Sync:** Disabled by default for performance
+- **High DPI:** May have scaling issues on high-resolution displays
+
+### Cross-platform considerations
+
+If attempting to run via Wine:
+
+- Install required Windows DLLs (vcrun2022, d3d11)
+- Configure DXVK for better DirectX 11 support
+- Expect reduced performance compared to native Windows
+
+## Next steps
+
+- Start building with [Visual Studio](/building/visual-studio)
+- Try command-line builds with [CMake](/building/cmake)
+- Learn about multiplayer networking and port configuration

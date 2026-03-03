@@ -1,0 +1,97 @@
+---
+title: Features overview
+description: Explore the improvements and features added to Minecraft Legacy Console Edition
+---
+
+This project brings Minecraft Legacy Console Edition v1.6.0560.0 (TU19) to modern Windows systems with significant improvements and new features. The enhancements focus on better performance, modern input support, and LAN multiplayer capabilities.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Keyboard & mouse support" icon="keyboard" href="#input-controls">
+    Full keyboard and mouse input support for PC-style gameplay
+  </Card>
+  <Card title="LAN multiplayer" icon="network-wired" href="/features/multiplayer">
+    Play with friends on your local network with automatic discovery
+  </Card>
+  <Card title="Fullscreen mode" icon="expand" href="#display-enhancements">
+    Borderless fullscreen support with F11 toggle
+  </Card>
+  <Card title="Performance improvements" icon="gauge-high" href="/features/improvements">
+    Enhanced timing, disabled V-Sync, and dynamic resolution
+  </Card>
+</CardGroup>
+
+## Input controls
+
+The game now supports keyboard and mouse input, providing a familiar PC gaming experience. You can use standard WASD controls for movement, mouse for camera control and interaction, and keyboard shortcuts for quick access to menus and features.
+
+### Movement and actions
+
+- **W/A/S/D** - Movement controls
+- **Space** - Jump or fly up (creative mode)
+- **Shift** (hold) - Sneak or fly down (creative mode)
+- **Ctrl** (hold) or double-tap **W** - Sprint
+- **Q** - Drop item
+
+### Mouse controls
+
+- **Left click** - Attack or destroy blocks
+- **Right click** - Use items or place blocks
+- **Mouse wheel** or **1-9** keys - Select hotbar items
+- **Left Alt** - Toggle mouse capture (for debugging)
+
+### Menus and interface
+
+- **E** - Open inventory
+- **C** - Open crafting menu
+- **Tab** - Game info (player list and host options)
+- **Esc** - Pause menu
+
+### View and debug options
+
+- **F1** - Toggle HUD visibility
+- **F3** - Toggle debug information overlay
+- **F4** - Open debug overlay
+- **F5** - Toggle view mode (first person/third person)
+- **F11** - Toggle fullscreen mode
+
+### Tutorial controls
+
+- **Enter** - Accept tutorial hints
+- **B** - Decline tutorial hints
+
+## Display enhancements
+
+The Windows build includes several display improvements for a better visual experience:
+
+<Info>
+  Press **F11** at any time to toggle borderless fullscreen mode. The game uses your device's native screen resolution instead of a fixed 1920x1080.
+</Info>
+
+### Fullscreen support
+
+The game now supports borderless fullscreen mode, which you can toggle using the F11 key. This implementation is found in `Windows64_Minecraft.cpp:683` and provides seamless transitions between windowed and fullscreen modes without changing display modes.
+
+### Dynamic resolution
+
+Instead of using a fixed 1920x1080 resolution, the game automatically uses your device's screen resolution. This ensures optimal display quality across different monitor configurations.
+
+## Platform support
+
+<Note>
+  Currently, only **Windows** is officially supported for building and running the project. The Windows build may run through Wine or CrossOver on macOS/Linux based on community reports, but this is unofficial and not tested by maintainers.
+</Note>
+
+The project has been updated to compile and execute in both Debug and Release modes on Windows using Visual Studio 2022. While the source code contains references to other platforms (Xbox, PS3, PS Vita, PS4), native builds for these platforms are not currently functional.
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="Multiplayer setup" icon="users" href="/features/multiplayer">
+    Learn how to host and join LAN games
+  </Card>
+  <Card title="Performance details" icon="bolt" href="/features/improvements">
+    Understand the technical improvements
+  </Card>
+</CardGroup>

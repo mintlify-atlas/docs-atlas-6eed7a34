@@ -1,0 +1,209 @@
+---
+title: Performance improvements
+description: Technical enhancements for better gameplay and performance
+---
+
+The Windows build includes several performance improvements and modern enhancements that make the game run better on contemporary hardware. These changes focus on timing accuracy, rendering performance, and display quality.
+
+## Timing improvements
+
+One of the most significant improvements is the implementation of a high-resolution timer system for smoother gameplay, especially at high frame rates.
+
+### High-resolution timer
+
+The game now uses Windows' `QueryPerformanceCounter` API for precise timing instead of relying solely on millisecond-accurate timers. This provides significantly better timing accuracy for frame pacing and game logic.
+
+<Info>
+  The high-resolution timer implementation uses `System::nanoTime()` which leverages `QueryPerformanceCounter` to provide nanosecond-level timing precision. This is crucial for smooth 60+ FPS gameplay.
+</Info>
+
+#### Implementation details
+
+The timer system is implemented in `Timer.cpp:26` and uses a dual-timer approach:
+
+```cpp
+// Use high-resolution timer for 'now' in seconds
+double now = System::nanoTime() / 1000000000.0;
+```
+
+This high-resolution timer path provides:
+
+- **Nanosecond precision** - Uses `QueryPerformanceCounter` for accurate timing
+- **Frame time calculation** - Calculates precise time deltas between frames
+- **Smooth frame pacing** - Reduces frame time jitter for smoother gameplay
+- **High FPS support** - Enables stable gameplay at frame rates above 60 FPS
+
+### Timer synchronization
+
+The timer system also includes synchronization logic that adjusts for drift between different time sources:
+
+- Accumulates millisecond measurements over 1000ms windows
+- Compares system time progression with high-resolution timer
+- Applies smoothing factor (0.2) to adjust for timing drift
+- Prevents sudden time jumps that could cause gameplay issues
+
+## Rendering improvements
+
+Several rendering changes improve visual quality and performance:
+
+### V-Sync disabled
+
+<Card title="V-Sync disabled by default" icon="gauge-high">
+  V-Sync has been disabled to allow for higher frame rates and reduced input latency.
+</Card>
+
+Disabling V-Sync provides several benefits:
+
+- **Higher frame rates** - The game can render above 60 FPS on capable hardware
+- **Reduced input latency** - Less delay between input and on-screen response
+- **Better responsiveness** - More immediate feedback for player actions
+
+<Warning>
+  With V-Sync disabled, you may experience screen tearing on some displays. This is a trade-off for lower latency and higher frame rates.
+</Warning>
+
+### Dynamic resolution
+
+The game now uses your device's native screen resolution instead of a hardcoded 1920x1080:
+
+- **Automatic resolution detection** - Queries your display's native resolution at startup
+- **Better scaling** - No forced upscaling or downscaling on non-1080p displays
+- **Improved clarity** - Native resolution rendering for sharper visuals
+- **Multi-monitor support** - Respects the resolution of the monitor where the game window is located
+
+## Display enhancements
+
+Modern display features have been added to improve the visual experience:
+
+### Fullscreen support
+
+The game implements borderless fullscreen mode (see `Windows64_Minecraft.cpp:683`):
+
+```cpp
+// Toggle borderless fullscreen
+void ToggleFullscreen()
+{
+    DWORD dwStyle = GetWindowLong(g_hWnd, GWL_STYLE);
+    if (!g_isFullscreen)
+    {
+        MONITORINFO mi = { sizeof(mi) };
+        if (GetWindowPlacement(g_hWnd, &g_wpPrev) &&
+            GetMonitorInfo(MonitorFromWindow(g_hWnd, MONITOR_DEFAULTTOPRIMARY), &mi))
+        {
+            SetWindowLong(g_hWnd, GWL_STYLE, dwStyle & ~WS_OVERLAPPEDWINDOW);
+            SetWindowPos(g_hWnd, HWND_TOP,
+                mi.rcMonitor.left, mi.rcMonitor.top,
+                mi.rcMonitor.right - mi.rcMonitor.left,
+                mi.rcMonitor.bottom - mi.rcMonitor.top,
+                SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+        }
+    }
+}
+```
+
+This implementation:
+
+- Uses borderless window mode instead of exclusive fullscreen
+- Preserves window state when toggling back to windowed mode
+- Automatically positions on the primary monitor
+- Supports quick Alt+Tab switching without mode changes
+
+<Tip>
+  Borderless fullscreen mode provides the benefits of fullscreen (no window borders, full screen coverage) while maintaining the flexibility of windowed mode (easy Alt+Tab, no display mode switching).
+</Tip>
+
+## Compilation improvements
+
+The project has been updated to work with modern development tools:
+
+### Visual Studio 2022 support
+
+<CardGroup cols={2}>
+  <Card title="Debug mode" icon="bug">
+    Fixed compilation and execution issues in Debug configuration
+  </Card>
+  <Card title="Release mode" icon="rocket">
+    Optimized builds work correctly (note: some minor bugs may exist)
+  </Card>
+</CardGroup>
+
+The codebase now compiles cleanly with Visual Studio 2022, including:
+
+- Updated project files and configurations
+- Fixed deprecated API usage
+- Resolved Windows SDK compatibility issues
+- Modern C++ standard compliance improvements
+
+### Build configurations
+
+Both build configurations are functional:
+
+- **Debug** - Recommended for development and testing, includes full debugging symbols
+- **Release** - Optimized for performance, though some bugs may be present
+
+## Performance characteristics
+
+With these improvements, the Windows build achieves:
+
+<CardGroup cols={3}>
+  <Card title="Higher FPS" icon="gauge-high">
+    Capable of running above 60 FPS with V-Sync disabled
+  </Card>
+  <Card title="Lower latency" icon="clock">
+    Reduced input-to-screen latency from disabled V-Sync
+  </Card>
+  <Card title="Smoother timing" icon="chart-line">
+    More consistent frame pacing from high-resolution timer
+  </Card>
+</CardGroup>
+
+## Technical details
+
+### System timing API
+
+The `System::nanoTime()` function in `system.cpp` provides high-resolution timing:
+
+```cpp
+//Returns the current value of the most precise available system timer, in nanoseconds.
+static long long nanoTime()
+{
+    LARGE_INTEGER frequency;
+    LARGE_INTEGER counter;
+    
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&counter);
+    
+    return (counter.QuadPart * 1000000000LL) / frequency.QuadPart;
+}
+```
+
+This implementation:
+
+- Queries the CPU's performance counter frequency
+- Reads the current performance counter value
+- Converts to nanoseconds by scaling with the frequency
+- Provides sub-millisecond timing accuracy
+
+### Frame timing logic
+
+The `Timer::advanceTime()` method uses the high-resolution timer to calculate frame deltas:
+
+1. Gets the current high-resolution timestamp
+2. Calculates time elapsed since the last frame
+3. Applies time scaling and adjustment factors
+4. Determines how many game ticks to process
+5. Updates the interpolation factor for rendering
+
+<Note>
+  The timer system caps updates at `MAX_TICKS_PER_UPDATE` to prevent spiral-of-death scenarios where the game gets stuck processing too many ticks when running slowly.
+</Note>
+
+## Future improvements
+
+Potential areas for further performance enhancements:
+
+- Graphics API optimization for modern GPUs
+- Multi-threaded rendering support
+- Chunk loading and generation optimizations
+- Memory usage improvements
+- Additional platform support (native Linux, macOS builds)
