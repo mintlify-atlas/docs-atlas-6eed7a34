@@ -457,6 +457,55 @@ class Enchantment {
 Enchanting uses the player's XP level and randomness based on surrounding bookshelves (max 15) to determine available enchantments.
 </Note>
 
+## Achievement system
+
+The `Achievement` class (`Achievement.h:source/Minecraft.World/Achievement.h`) extends `Stat` to track player progress:
+
+```cpp
+class Achievement : public Stat {
+    const int x, y;              // Position in achievement tree
+    Achievement *requires;        // Prerequisite achievement
+    const wstring desc;          // Description text
+    shared_ptr<ItemInstance> icon; // Display icon
+    bool isGoldenVar;            // Special "golden" achievements
+};
+```
+
+### Built-in achievements
+
+The game includes a comprehensive achievement tree defined in `Achievements.h:source/Minecraft.World/Achievements.h`:
+
+**Core progression:**
+- `openInventory` - Open your inventory (starting achievement)
+- `mineWood` - Mine wood blocks
+- `buildWorkbench` - Craft a crafting table
+- `buildPickaxe` - Craft a pickaxe
+- `buildFurnace` - Build a furnace
+- `acquireIron` - Smelt iron ore
+- `buildSword` - Craft a sword
+- `diamonds` - Mine diamond ore
+- `enchantments` - Use an enchantment table
+
+**Nether progression:**
+- `InToTheNether` - Enter the Nether
+- `ghast` - Kill a ghast
+- `blazeRod` - Obtain a blaze rod
+- `potion` - Brew a potion
+
+**End game:**
+- `theEnd` - Enter the End
+- `winGame` - Defeat the Ender Dragon
+
+**Special achievements:**
+- `flyPig` - Ride a pig off a cliff
+- `snipeSkeleton` - Kill a skeleton with an arrow from 50+ meters
+- `onARail` - Travel by minecart at least 1km from start
+- `leaderOfThePack` - Befriend five wolves
+
+<Info>
+Achievements are tracked per-player and organized in a tree structure where many achievements require completing prerequisite achievements first.
+</Info>
+
 ## Networking system
 
 ### Packet architecture
